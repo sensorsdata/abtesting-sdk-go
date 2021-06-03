@@ -1,9 +1,9 @@
 package sensorsabtest
 
 import (
-	"./beans"
-	"./utils"
 	"fmt"
+	"github.com/sensorsdata/abtesting-sdk-go/beans"
+	"github.com/sensorsdata/abtesting-sdk-go/utils"
 	"reflect"
 	"time"
 )
