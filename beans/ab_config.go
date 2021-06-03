@@ -42,5 +42,5 @@ type ABConfig struct {
 	/**
 	用于 SDK 埋点 SensorsAnalytics
 	*/
-	sensorsAnalytics sensorsanalytics.SensorsAnalytics
+	SensorsAnalytics sensorsanalytics.SensorsAnalytics
 }
