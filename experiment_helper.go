@@ -64,7 +64,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest) {
 	// 如果在缓存中存在或是对照组，则不触发 $ABTestTrigger 事件
-	if eventsCache[distinctId] != "" || experiment.IsControlGroup {
+	if eventsCache[distinctId] != nil || experiment.IsControlGroup {
 		return
 	}
 
