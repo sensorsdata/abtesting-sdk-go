@@ -1,4 +1,4 @@
-package abtesting_sdk_go
+package sensorsabtest
 
 import (
 	"./beans"
