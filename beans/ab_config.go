@@ -1,6 +1,9 @@
 package beans
 
-import "time"
+import (
+	"github.com/sensorsdata/sa-sdk-go"
+	"time"
+)
 
 type ABConfig struct {
 	/*
@@ -35,4 +38,9 @@ type ABConfig struct {
 	网络请求超时时间
 	*/
 	Timeout time.Duration
+
+	/**
+	用于 SDK 埋点 SensorsAnalytics
+	*/
+	sensorsAnalytics sensorsanalytics.SensorsAnalytics
 }
