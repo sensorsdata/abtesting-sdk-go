@@ -22,7 +22,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 		return err, defaultValue, beans.Experiment{}
 	}
 
-	distinctId, isLoginId := parseId(requestParam.LoginId, requestParam.AnonymousId)
+	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	var experimentParam = requestParam.ExperimentParam
 	// 遍历试验
 	for _, experiment := range experiments {
@@ -42,7 +42,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 }
 
 func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
-	distinctId, isLoginId := parseId(requestParam.LoginId, requestParam.AnonymousId)
+	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	tempExperiment := experimentCache[distinctId]
 	if tempExperiment == nil {
 		err, tempVariable, tempExperiment := loadExperimentFromNetwork(sensors, requestParam, defaultValue, isTrack)
@@ -89,19 +89,19 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	//TODO 删除缓存
 }
 
-func parseId(loginId string, anonymousId string) (string, bool) {
-	var id string
+func getDistinctId(loginId string, anonymousId string) (string, bool) {
+	var distinctId string
 	var isLoginId bool
-	if loginId == "" {
-		id = loginId
+	if distinctId == "" {
+		distinctId = loginId
 		isLoginId = true
 	}
 
-	if id == "" {
-		id = anonymousId
+	if distinctId == "" {
+		distinctId = anonymousId
 		isLoginId = false
 	}
-	return id, isLoginId
+	return distinctId, isLoginId
 }
 
 func isEqualType(defaultValue interface{}, variables beans.Variables) bool {
