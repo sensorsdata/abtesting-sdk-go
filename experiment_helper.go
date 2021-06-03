@@ -9,10 +9,10 @@ import (
 )
 
 // 用户的试验缓存
-var experimentCache map[string]interface{}
+var experimentCache = make(map[string]interface{})
 
 // $ABTestTrigger 事件缓存
-var eventsCache map[string]interface{}
+var eventsCache = make(map[string]interface{})
 
 var isFirstEvent = true
 
