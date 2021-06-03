@@ -17,7 +17,7 @@ var eventsCache map[string]interface{}
 var isFirstEvent = true
 
 func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
-	experiments, err := utils.RequestExperiment(sensors.config.APIUrl., buildRequestParam(requestParam), time.Duration(sensors.config.Timeout)*time.Millisecond)
+	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(requestParam), time.Duration(sensors.config.Timeout)*time.Millisecond)
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
 	}
