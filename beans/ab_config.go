@@ -32,7 +32,7 @@ type ABConfig struct {
 	/*
 		API 地址
 	*/
-	ServerAPIUrl string
+	APIUrl string
 
 	/**
 	网络请求超时时间
