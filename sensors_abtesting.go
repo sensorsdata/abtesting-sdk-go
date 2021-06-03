@@ -18,7 +18,8 @@ type SensorsABTest struct {
 
 func InitSensorsABTesting(abConfig beans.ABConfig) SensorsABTest {
 	return SensorsABTest{
-		config: abConfig,
+		config:           abConfig,
+		sensorsAnalytics: abConfig.SensorsAnalytics,
 	}
 }
 
