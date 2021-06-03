@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"../beans"
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"io/ioutil"
 	"net/http"
 	"time"

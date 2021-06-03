@@ -1,8 +1,8 @@
 package sensorsabtest
 
 import (
-	"./beans"
 	"errors"
+	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"github.com/sensorsdata/sa-sdk-go"
 )
 
