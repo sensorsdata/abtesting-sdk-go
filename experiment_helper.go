@@ -74,7 +74,7 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	}
 
 	if isFirstEvent {
-		properties["$lib_plugin_version"] = [1]string{"golang_abtesting:" + SDK_VERSION}
+		properties["$lib_plugin_version"] = []string{"golang_abtesting:" + SDK_VERSION}
 		isFirstEvent = false
 	}
 
