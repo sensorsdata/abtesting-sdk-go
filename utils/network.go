@@ -26,7 +26,7 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	response := Response{}
+	response := response{}
 	err = json.Unmarshal(body, &response)
 	if err == nil && response.Status == "SUCCESS" {
 		return response.Results, nil
@@ -35,7 +35,7 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 	}
 }
 
-type Response struct {
+type response struct {
 	Status    string             `json:"status"`
 	ErrorType string             `json:"error_type"`
 	Error     string             `json:"error"`

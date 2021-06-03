@@ -95,6 +95,10 @@ func (sensors *SensorsABTest) FastFetchABTestExperiment(requestParam beans.Reque
 	return nil, variable, exper
 }
 
+func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment) {
+	trackABTestEvent(distinctId, isLoginId, experiment, sensors)
+}
+
 // 检查请求参数是否合法
 func checkRequestParams(requestParam beans.RequestParam) (bool, error) {
 	if requestParam.AnonymousId == "" && requestParam.LoginId == "" {

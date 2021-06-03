@@ -31,6 +31,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 			if experimentParam == variable.Name && isEqualType(defaultValue, variable) {
 				if isTrack {
 					trackABTestEvent(distinctId, isLoginId, experiment, sensors)
+					saveEvent2Cache(distinctId, experiment, sensors)
 				}
 				// 回调试验变量给客户
 				return nil, variable.Value, experiment
@@ -42,24 +43,23 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 }
 
 func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
+	var tempVariable interface{}
 	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	tempExperiment := experimentCache[distinctId]
 	if tempExperiment == nil {
-		err, tempVariable, tempExperiment := loadExperimentFromNetwork(sensors, requestParam, defaultValue, isTrack)
-		if err != nil {
-			return err, defaultValue, beans.Experiment{}
+		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, requestParam, defaultValue, isTrack)
+		if error != nil {
+			return error, defaultValue, beans.Experiment{}
 		}
 		// 缓存试验
-		experimentCache[distinctId] = tempExperiment
-		trackABTestEvent(distinctId, isLoginId, tempExperiment, sensors)
-		return nil, tempVariable, tempExperiment
+		saveExperiment2Cache(distinctId, tempExperiment.(beans.Experiment))
 	}
 
 	te, ok := tempExperiment.(beans.Experiment)
 	if ok {
 		trackABTestEvent(distinctId, isLoginId, te, sensors)
 	}
-	return nil, nil, beans.Experiment{}
+	return nil, tempVariable, te
 }
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest) {
@@ -82,11 +82,19 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	if err != nil {
 		fmt.Println("$ABTestTrigger track failed.")
 	}
+}
+
+// 保存到缓存中
+func saveEvent2Cache(distinctId string, experiment beans.Experiment, sensors *SensorsABTest) {
 	// 缓存 $ABTestTrigger 事件
 	if sensors.config.EnableEventCache {
 		eventsCache[distinctId] = experiment
 	}
 	//TODO 删除缓存
+}
+
+func saveExperiment2Cache(distinctId string, experiment beans.Experiment) {
+	experimentCache[distinctId] = experiment
 }
 
 func getDistinctId(loginId string, anonymousId string) (string, bool) {
