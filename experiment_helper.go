@@ -44,7 +44,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 		}
 	}
 
-	return nil, nil, beans.Experiment{}
+	return nil, defaultValue, beans.Experiment{}
 }
 
 func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
@@ -58,6 +58,19 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 		}
 		// 缓存试验
 		saveExperiment2Cache(distinctId, tempExperiment.(beans.Experiment), sensors.config.ExperimentCacheTime)
+	} else {
+		// 遍历试验变量
+		te, ok := tempExperiment.(beans.Experiment)
+		if ok {
+			for _, variable := range te.VariableList {
+				if requestParam.ExperimentParam == variable.Name && isEqualType(defaultValue, variable) {
+					tempVariable = variable
+					break
+				}
+			}
+			// 如果类型不匹配，则使用默认值
+			tempVariable = defaultValue
+		}
 	}
 
 	te, ok := tempExperiment.(beans.Experiment)
@@ -136,7 +149,7 @@ func saveExperiment2Cache(distinctId string, experiment beans.Experiment, timeou
 	experimentCache.Add(distinctId, experiment)
 	// 进行清理缓存
 	removeCache(distinctId, func(id string) {
-		eventsCache.Remove(id)
+		experimentCache.Remove(id)
 	}, timeout)
 }
 
