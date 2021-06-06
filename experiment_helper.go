@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"github.com/sensorsdata/abtesting-sdk-go/utils"
+	"github.com/sensorsdata/abtesting-sdk-go/utils/lru"
 	"reflect"
+	"sync"
 	"time"
 )
 
 // 用户的试验缓存
-var experimentCache = make(map[string]interface{})
+var experimentCache = lru.New(4096)
+var experimentLock = sync.Mutex{}
 
 // $ABTestTrigger 事件缓存
-var eventsCache = make(map[string]interface{})
+var eventsCache = lru.New(4096)
+var eventsLock = sync.Mutex{}
 
+// 插件版本号标记位
 var isFirstEvent = true
 
 func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
@@ -45,14 +50,14 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
 	var tempVariable interface{}
 	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
-	tempExperiment := experimentCache[distinctId]
-	if tempExperiment == nil {
+	tempExperiment, ok := loadExperimentCache(distinctId)
+	if tempExperiment == nil && ok {
 		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, requestParam, defaultValue, isTrack)
 		if error != nil {
 			return error, defaultValue, beans.Experiment{}
 		}
 		// 缓存试验
-		saveExperiment2Cache(distinctId, tempExperiment.(beans.Experiment))
+		saveExperiment2Cache(distinctId, tempExperiment.(beans.Experiment), sensors.config.ExperimentCacheTime)
 	}
 
 	te, ok := tempExperiment.(beans.Experiment)
@@ -63,8 +68,14 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 }
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
-	// 如果在缓存中存在或是对照组，则不触发 $ABTestTrigger 事件
-	if eventsCache[distinctId] != nil || experiment.IsControlGroup {
+	// 是对照组，则不触发 $ABTestTrigger 事件
+	if experiment.IsControlGroup {
+		return
+	}
+
+	// 如果在缓存中，则不触发 $ABTestTrigger 事件
+	_, ok := loadEventFromCache(distinctId)
+	if ok {
 		return
 	}
 
@@ -89,17 +100,43 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	}
 }
 
-// 保存到缓存中
+// 从缓存读取 $ABTestTrigger
+func loadEventFromCache(distinctId string) (interface{}, bool) {
+	eventsLock.Lock()
+	defer eventsLock.Unlock()
+	return eventsCache.Get(distinctId)
+}
+
+// 保存 $ABTestTrigger 到缓存中
 func saveEvent2Cache(distinctId string, experiment beans.Experiment, sensors *SensorsABTest) {
 	// 缓存 $ABTestTrigger 事件
 	if sensors.config.EnableEventCache {
-		eventsCache[distinctId] = experiment
+		eventsLock.Lock()
+		defer eventsLock.Unlock()
+		eventsCache.Add(distinctId, experiment)
+		// 进行清理缓存
+		removeCache(distinctId, func(id string) {
+			eventsCache.Remove(id)
+		}, sensors.config.EventCacheTime)
 	}
-	//TODO 删除缓存
 }
 
-func saveExperiment2Cache(distinctId string, experiment beans.Experiment) {
-	experimentCache[distinctId] = experiment
+// 从缓存读取试验
+func loadExperimentCache(distinctId string) (interface{}, bool) {
+	experimentLock.Lock()
+	defer experimentLock.Unlock()
+	return experimentCache.Get(distinctId)
+}
+
+// 保存试验到缓存
+func saveExperiment2Cache(distinctId string, experiment beans.Experiment, timeout time.Duration) {
+	experimentLock.Lock()
+	defer experimentLock.Unlock()
+	experimentCache.Add(distinctId, experiment)
+	// 进行清理缓存
+	removeCache(distinctId, func(id string) {
+		eventsCache.Remove(id)
+	}, timeout)
 }
 
 func getDistinctId(loginId string, anonymousId string) (string, bool) {
@@ -145,4 +182,15 @@ func buildRequestParam(requestParam beans.RequestParam) map[string]interface{} {
 	params["platform"] = LIB_NAME
 	params["properties"] = requestParam.HttpRequestPrams
 	return params
+}
+
+// 清理缓存
+func removeCache(distinctId string, removeCache func(id string), timeout time.Duration) {
+	go func() {
+		d := timeout * time.Second
+		t := time.NewTicker(d)
+		defer t.Stop()
+		<-t.C
+		removeCache(distinctId)
+	}()
 }
