@@ -7,18 +7,18 @@ import (
 
 type ABConfig struct {
 	/*
-		试验缓存时间
+		试验缓存时间，单位是秒
 	*/
-	ExperimentCacheTime int
+	ExperimentCacheTime time.Duration
 	/*
 		试验总缓存用户量限制
 	*/
 	ExperimentCacheSize int
 
 	/*
-		$ABTestTrigger 事件单用户缓存配置
+		$ABTestTrigger 事件缓存时间，单位是秒
 	*/
-	EventCacheTime int
+	EventCacheTime time.Duration
 	/*
 		$ABTestTrigger 事件总缓存用户量限制
 	*/
