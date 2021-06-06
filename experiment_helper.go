@@ -30,7 +30,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 		for _, variable := range experiment.VariableList {
 			if experimentParam == variable.Name && isEqualType(defaultValue, variable) {
 				if isTrack {
-					trackABTestEvent(distinctId, isLoginId, experiment, sensors)
+					trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
 					saveEvent2Cache(distinctId, experiment, sensors)
 				}
 				// 回调试验变量给客户
@@ -57,20 +57,25 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 
 	te, ok := tempExperiment.(beans.Experiment)
 	if ok {
-		trackABTestEvent(distinctId, isLoginId, te, sensors)
+		trackABTestEvent(distinctId, isLoginId, te, sensors, nil)
 	}
 	return nil, tempVariable, te
 }
 
-func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest) {
+func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
 	// 如果在缓存中存在或是对照组，则不触发 $ABTestTrigger 事件
 	if eventsCache[distinctId] != nil || experiment.IsControlGroup {
 		return
 	}
 
-	properties := map[string]interface{}{
-		"abtest_experiment_id":       experiment.AbtestExperimentId,
-		"abtest_experiment_group_id": experiment.AbtestExperimentGroupId,
+	if properties == nil {
+		properties = map[string]interface{}{
+			"abtest_experiment_id":       experiment.AbtestExperimentId,
+			"abtest_experiment_group_id": experiment.AbtestExperimentGroupId,
+		}
+	} else {
+		properties["abtest_experiment_id"] = experiment.AbtestExperimentId
+		properties["abtest_experiment_group_id"] = experiment.AbtestExperimentGroupId
 	}
 
 	if isFirstEvent {

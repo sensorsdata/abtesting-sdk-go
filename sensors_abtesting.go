@@ -95,7 +95,7 @@ func (sensors *SensorsABTest) FastFetchABTestExperiment(requestParam beans.Reque
 	return nil, variable, exper
 }
 
-func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment) {
+func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment, property map[string]interface{}) {
 	trackABTestEvent(distinctId, isLoginId, experiment, sensors)
 }
 
