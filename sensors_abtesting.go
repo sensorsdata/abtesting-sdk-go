@@ -96,7 +96,7 @@ func (sensors *SensorsABTest) FastFetchABTestExperiment(requestParam beans.Reque
 }
 
 func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment, property map[string]interface{}) {
-	trackABTestEvent(distinctId, isLoginId, experiment, sensors)
+	trackABTestEvent(distinctId, isLoginId, experiment, sensors, property)
 }
 
 // 检查请求参数是否合法
