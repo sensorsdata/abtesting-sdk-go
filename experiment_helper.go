@@ -51,8 +51,8 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 	var tempVariable interface{}
 	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	tempExperiment, ok := loadExperimentCache(distinctId)
-	if tempExperiment == nil || ok {
-		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, requestParam, defaultValue, isTrack)
+	if tempExperiment == nil || !ok {
+		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, requestParam, defaultValue, false)
 		if error != nil {
 			return error, defaultValue, beans.Experiment{}
 		}
@@ -61,7 +61,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 	}
 
 	te, ok := tempExperiment.(beans.Experiment)
-	if ok {
+	if ok && isTrack {
 		trackABTestEvent(distinctId, isLoginId, te, sensors, nil)
 	}
 	return nil, tempVariable, te
@@ -96,8 +96,9 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 
 	err := sensors.sensorsAnalytics.Track(distinctId, "$ABTestTrigger", properties, isLoginId)
 	if err != nil {
-		fmt.Println("$ABTestTrigger track failed.")
+		fmt.Println("$ABTestTrigger track failed, error : ", err)
 	}
+	sensors.sensorsAnalytics.Flush()
 }
 
 // 从缓存读取 $ABTestTrigger
