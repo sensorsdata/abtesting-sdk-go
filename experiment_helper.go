@@ -48,7 +48,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 }
 
 func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
-	var tempVariable interface{}
+	var tempVariable = defaultValue
 	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	tempExperiment, ok := loadExperimentCache(distinctId)
 	if tempExperiment == nil || !ok {
@@ -68,8 +68,6 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 					break
 				}
 			}
-			// 如果类型不匹配，则使用默认值
-			tempVariable = defaultValue
 		}
 	}
 
