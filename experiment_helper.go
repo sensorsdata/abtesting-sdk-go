@@ -51,7 +51,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestP
 	var tempVariable interface{}
 	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	tempExperiment, ok := loadExperimentCache(distinctId)
-	if tempExperiment == nil && ok {
+	if tempExperiment == nil || ok {
 		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, requestParam, defaultValue, isTrack)
 		if error != nil {
 			return error, defaultValue, beans.Experiment{}

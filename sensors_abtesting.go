@@ -62,7 +62,7 @@ func (sensors *SensorsABTest) AsyncFetchABTestExperiment(requestParam beans.Requ
 /*
 	优先从缓存获取试验变量，如果缓存没有则从网络拉取，并且 SDK 内部触发 $ABTestTrigger 埋点事件
 */
-func (sensors *SensorsABTest) FastFetchABTest(requestParam beans.RequestParam, defaultValue interface{}, callBack func(interface{})) (error, interface{}) {
+func (sensors *SensorsABTest) FastFetchABTest(requestParam beans.RequestParam, defaultValue interface{}) (error, interface{}) {
 	_, err := checkRequestParams(requestParam)
 	if err != nil {
 		return err, defaultValue
