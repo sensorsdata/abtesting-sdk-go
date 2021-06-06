@@ -187,7 +187,12 @@ func buildRequestParam(requestParam beans.RequestParam) map[string]interface{} {
 // 清理缓存
 func removeCache(distinctId string, removeCache func(id string), timeout time.Duration) {
 	go func() {
-		d := timeout * time.Second
+		var d time.Duration
+		if timeout == 0 {
+			d = 24 * time.Hour
+		} else {
+			d = timeout * time.Second
+		}
 		t := time.NewTicker(d)
 		defer t.Stop()
 		<-t.C
