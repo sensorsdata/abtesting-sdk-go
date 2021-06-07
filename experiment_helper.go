@@ -21,6 +21,9 @@ var eventsLock = sync.Mutex{}
 // 插件版本号标记位
 var isFirstEvent = true
 
+// 埋点事件上次触发的时间
+var lastTimeEvent string
+
 func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
 	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(sensors.config.Timeout)*time.Millisecond)
 	if err != nil {
@@ -98,9 +101,11 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 		properties["abtest_experiment_group_id"] = experiment.AbtestExperimentGroupId
 	}
 
-	if isFirstEvent {
+	currentTime := time.Now().Format("2006-01-02")
+	if isFirstEvent || currentTime != lastTimeEvent {
 		properties["$lib_plugin_version"] = []string{"golang_abtesting:" + SDK_VERSION}
 		isFirstEvent = false
+		lastTimeEvent = currentTime
 	}
 
 	err := sensors.sensorsAnalytics.Track(distinctId, "$ABTestTrigger", properties, isLoginId)
