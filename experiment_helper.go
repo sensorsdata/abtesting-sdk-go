@@ -21,13 +21,12 @@ var eventsLock = sync.Mutex{}
 // 插件版本号标记位
 var isFirstEvent = true
 
-func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
-	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(requestParam), time.Duration(sensors.config.Timeout)*time.Millisecond)
+func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
+	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(sensors.config.Timeout)*time.Millisecond)
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
 	}
 
-	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	var experimentParam = requestParam.ExperimentParam
 	// 遍历试验
 	for _, experiment := range experiments {
@@ -47,12 +46,11 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, requestParam beans.Reques
 	return nil, defaultValue, beans.Experiment{}
 }
 
-func loadExperimentFromCache(sensors *SensorsABTest, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
+func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
 	var tempVariable = defaultValue
-	distinctId, isLoginId := getDistinctId(requestParam.LoginId, requestParam.AnonymousId)
 	tempExperiment, ok := loadExperimentCache(distinctId)
 	if tempExperiment == nil || !ok {
-		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, requestParam, defaultValue, false)
+		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, false)
 		if error != nil {
 			return error, defaultValue, beans.Experiment{}
 		}
@@ -162,21 +160,6 @@ func saveExperiment2Cache(distinctId string, experiment beans.Experiment, timeou
 	}, timeout)
 }
 
-func getDistinctId(loginId string, anonymousId string) (string, bool) {
-	var distinctId string
-	var isLoginId bool
-	if distinctId == "" {
-		distinctId = loginId
-		isLoginId = true
-	}
-
-	if distinctId == "" {
-		distinctId = anonymousId
-		isLoginId = false
-	}
-	return distinctId, isLoginId
-}
-
 func isEqualType(defaultValue interface{}, variables beans.Variables) bool {
 	var defaultType = reflect.TypeOf(defaultValue)
 	if variables.Type == "STRING" && "string" == defaultType.String() {
@@ -191,14 +174,12 @@ func isEqualType(defaultValue interface{}, variables beans.Variables) bool {
 }
 
 // 拼接网络请求参数
-func buildRequestParam(requestParam beans.RequestParam) map[string]interface{} {
+func buildRequestParam(distinctId string, isLoginId bool, requestParam beans.RequestParam) map[string]interface{} {
 	var params = make(map[string]interface{})
-	if requestParam.LoginId != "" {
-		params["login_id"] = requestParam.LoginId
-	}
-
-	if requestParam.AnonymousId != "" {
-		params["anonymous_id"] = requestParam.LoginId
+	if isLoginId {
+		params["login_id"] = distinctId
+	} else {
+		params["anonymous_id"] = distinctId
 	}
 
 	params["abtest_lib_version"] = SDK_VERSION

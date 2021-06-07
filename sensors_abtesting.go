@@ -17,9 +17,8 @@ type SensorsABTest struct {
 }
 
 func InitSensorsABTesting(abConfig beans.ABConfig) SensorsABTest {
-	initCache(abConfig)
 	return SensorsABTest{
-		config:           abConfig,
+		config:           initConfig(abConfig),
 		sensorsAnalytics: abConfig.SensorsAnalytics,
 	}
 }
@@ -27,13 +26,13 @@ func InitSensorsABTesting(abConfig beans.ABConfig) SensorsABTest {
 /*
 	拉取最新试验变量，由 SDK 内部触发 $ABTestTrigger 埋点事件
 */
-func (sensors *SensorsABTest) AsyncFetchABTest(requestParam beans.RequestParam, defaultValue interface{}) (error, interface{}) {
-	_, err := checkRequestParams(requestParam)
+func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}) (error, interface{}) {
+	_, err := checkRequestParams(distinctId)
 	if err != nil {
 		return err, defaultValue
 	}
 
-	err, variable, _ := loadExperimentFromNetwork(sensors, requestParam, defaultValue, true)
+	err, variable, _ := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, true)
 
 	if err != nil {
 		return err, defaultValue
@@ -45,13 +44,14 @@ func (sensors *SensorsABTest) AsyncFetchABTest(requestParam beans.RequestParam, 
 /*
 	拉取最新试验计划，SDK 不触发 $ABTestTrigger 埋点事件
 */
-func (sensors *SensorsABTest) AsyncFetchABTestExperiment(requestParam beans.RequestParam, defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
-	_, err := checkRequestParams(requestParam)
+func (sensors *SensorsABTest) AsyncFetchABTestExperiment(distinctId string, isLoginId bool, requestParam beans.RequestParam,
+	defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
+	_, err := checkRequestParams(distinctId)
 	if err != nil {
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromNetwork(sensors, requestParam, defaultValue, false)
+	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, false)
 
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
@@ -63,13 +63,14 @@ func (sensors *SensorsABTest) AsyncFetchABTestExperiment(requestParam beans.Requ
 /*
 	优先从缓存获取试验变量，如果缓存没有则从网络拉取，并且 SDK 内部触发 $ABTestTrigger 埋点事件
 */
-func (sensors *SensorsABTest) FastFetchABTest(requestParam beans.RequestParam, defaultValue interface{}) (error, interface{}) {
-	_, err := checkRequestParams(requestParam)
+func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam,
+	defaultValue interface{}) (error, interface{}) {
+	_, err := checkRequestParams(distinctId)
 	if err != nil {
 		return err, defaultValue
 	}
 
-	err, variable, _ := loadExperimentFromCache(sensors, requestParam, defaultValue, true)
+	err, variable, _ := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, defaultValue, true)
 
 	if err != nil {
 		return err, defaultValue
@@ -81,13 +82,14 @@ func (sensors *SensorsABTest) FastFetchABTest(requestParam beans.RequestParam, d
 /*
 	优先从缓存获取试验变量，如果缓存没有则从网络拉取，并且 SDK 不触发 $ABTestTrigger 埋点事件
 */
-func (sensors *SensorsABTest) FastFetchABTestExperiment(requestParam beans.RequestParam, defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
-	_, err := checkRequestParams(requestParam)
+func (sensors *SensorsABTest) FastFetchABTestExperiment(distinctId string, isLoginId bool, requestParam beans.RequestParam,
+	defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
+	_, err := checkRequestParams(distinctId)
 	if err != nil {
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromCache(sensors, requestParam, defaultValue, false)
+	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, defaultValue, false)
 
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
@@ -96,14 +98,48 @@ func (sensors *SensorsABTest) FastFetchABTestExperiment(requestParam beans.Reque
 	return nil, variable, exper
 }
 
-func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment, property map[string]interface{}) {
+func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment, property map[string]interface{}) error {
+	_, err := checkRequestParams(distinctId)
+	if err != nil {
+		return err
+	}
 	trackABTestEvent(distinctId, isLoginId, experiment, sensors, property)
+	return nil
 }
 
 // 检查请求参数是否合法
-func checkRequestParams(requestParam beans.RequestParam) (bool, error) {
-	if requestParam.AnonymousId == "" && requestParam.LoginId == "" {
-		return false, errors.New("AnonymousId and LoginId must not be empty")
+func checkRequestParams(distinctId string) (bool, error) {
+	if distinctId == "" {
+		return false, errors.New("DistinctId must not be empty")
 	}
 	return true, nil
+}
+
+func initConfig(abConfig beans.ABConfig) beans.ABConfig {
+	var config = beans.ABConfig{}
+	if abConfig.ExperimentCacheSize <= 0 {
+		config.ExperimentCacheSize = 4096
+	}
+
+	if abConfig.EventCacheSize <= 0 {
+		config.EventCacheSize = 4096
+	}
+
+	if abConfig.ExperimentCacheTime <= 0 {
+		config.ExperimentCacheTime = 24 * 60 * 60
+	}
+
+	if abConfig.EventCacheTime <= 0 {
+		config.EventCacheTime = 24 * 60 * 60
+	}
+
+	if abConfig.Timeout <= 0 {
+		config.Timeout = 3
+	}
+
+	config.SensorsAnalytics = abConfig.SensorsAnalytics
+	config.EnableEventCache = abConfig.EnableEventCache
+	config.APIUrl = abConfig.APIUrl
+	initCache(config)
+	return config
 }
