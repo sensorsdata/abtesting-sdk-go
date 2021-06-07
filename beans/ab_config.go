@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type ABConfig struct {
+type ABTestConfig struct {
 	/*
 		试验缓存时间，单位是秒
 	*/

@@ -16,7 +16,7 @@ type SensorsABTest struct {
 	sensorsAnalytics sensorsanalytics.SensorsAnalytics
 }
 
-func InitSensorsABTesting(abConfig beans.ABConfig) SensorsABTest {
+func InitSensorsABTest(abConfig beans.ABConfig) SensorsABTest {
 	return SensorsABTest{
 		config:           initConfig(abConfig),
 		sensorsAnalytics: abConfig.SensorsAnalytics,
