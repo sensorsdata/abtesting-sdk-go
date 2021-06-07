@@ -77,8 +77,8 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 }
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
-	// 是对照组，则不触发 $ABTestTrigger 事件
-	if experiment.IsControlGroup {
+	// 是白名单，则不触发 $ABTestTrigger 事件
+	if experiment.IsWhiteList {
 		return
 	}
 
