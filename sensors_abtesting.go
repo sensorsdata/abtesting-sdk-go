@@ -12,11 +12,11 @@ const (
 )
 
 type SensorsABTest struct {
-	config           beans.ABConfig
+	config           beans.ABTestConfig
 	sensorsAnalytics sensorsanalytics.SensorsAnalytics
 }
 
-func InitSensorsABTest(abConfig beans.ABConfig) SensorsABTest {
+func InitSensorsABTest(abConfig beans.ABTestConfig) SensorsABTest {
 	return SensorsABTest{
 		config:           initConfig(abConfig),
 		sensorsAnalytics: abConfig.SensorsAnalytics,
@@ -115,8 +115,8 @@ func checkRequestParams(distinctId string) (bool, error) {
 	return true, nil
 }
 
-func initConfig(abConfig beans.ABConfig) beans.ABConfig {
-	var config = beans.ABConfig{}
+func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
+	var config = beans.ABTestConfig{}
 	if abConfig.ExperimentCacheSize <= 0 {
 		config.ExperimentCacheSize = 4096
 	}
