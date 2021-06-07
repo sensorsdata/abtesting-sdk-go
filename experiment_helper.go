@@ -112,6 +112,17 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	sensors.sensorsAnalytics.Flush()
 }
 
+// 初始化缓存大小
+func initCache(config beans.ABConfig) {
+	if config.EventCacheSize != 0 {
+		eventsCache = lru.New(config.EventCacheSize)
+	}
+
+	if config.ExperimentCacheSize != 0 {
+		experimentCache = lru.New(config.ExperimentCacheSize)
+	}
+}
+
 // 从缓存读取 $ABTestTrigger
 func loadEventFromCache(distinctId string) (interface{}, bool) {
 	eventsLock.Lock()

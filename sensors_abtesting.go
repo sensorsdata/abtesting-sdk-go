@@ -17,6 +17,7 @@ type SensorsABTest struct {
 }
 
 func InitSensorsABTesting(abConfig beans.ABConfig) SensorsABTest {
+	initCache(abConfig)
 	return SensorsABTest{
 		config:           abConfig,
 		sensorsAnalytics: abConfig.SensorsAnalytics,
