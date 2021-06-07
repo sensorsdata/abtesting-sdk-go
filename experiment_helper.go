@@ -27,7 +27,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 		return err, defaultValue, beans.Experiment{}
 	}
 
-	var experimentParam = requestParam.ExperimentParam
+	var experimentParam = requestParam.ParamName
 	// 遍历试验
 	for _, experiment := range experiments {
 		// 遍历试验变量
@@ -61,7 +61,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		te, ok := tempExperiment.(beans.Experiment)
 		if ok {
 			for _, variable := range te.VariableList {
-				if requestParam.ExperimentParam == variable.Name && isEqualType(defaultValue, variable) {
+				if requestParam.ParamName == variable.Name && isEqualType(defaultValue, variable) {
 					tempVariable = variable
 					break
 				}
@@ -111,7 +111,7 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 }
 
 // 初始化缓存大小
-func initCache(config beans.ABConfig) {
+func initCache(config beans.ABTestConfig) {
 	if config.EventCacheSize != 0 {
 		eventsCache = lru.New(config.EventCacheSize)
 	}
@@ -184,7 +184,7 @@ func buildRequestParam(distinctId string, isLoginId bool, requestParam beans.Req
 
 	params["abtest_lib_version"] = SDK_VERSION
 	params["platform"] = LIB_NAME
-	params["properties"] = requestParam.HttpRequestPrams
+	params["properties"] = requestParam.Properties
 	return params
 }
 
