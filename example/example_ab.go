@@ -49,6 +49,7 @@ func main() {
 
 	// 直接从网络获取试验
 	err, value, _ := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara, "default")
+	fmt.Println("根据试验变量 value 值做试验, value = ", value)
 
 	requestPara = beans.RequestParam{
 		ParamName:              "btn_type",
@@ -58,7 +59,7 @@ func main() {
 	err, value, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara, "test")
 	if err == nil {
 		// 触发埋点事件
-		_ = sensorsAB.TrackABTestTrigger("login123", true, experiment, map[string]interface{}{
+		_ = sensorsAB.TrackABTestTrigger(experiment, map[string]interface{}{
 			"test":    "test",
 			"andoter": "andoter",
 			"antway":  "dddddd",
