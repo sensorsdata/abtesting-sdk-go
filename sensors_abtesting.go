@@ -33,13 +33,17 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, false)
+	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
 	}
 
-	return nil, variable, exper
+	if requestParam.EnableAutoTrackABEvent {
+		return nil, variable, exper
+	} else {
+		return nil, variable, beans.Experiment{}
+	}
 }
 
 /*
@@ -52,13 +56,17 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, defaultValue, false)
+	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, defaultValue, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
 	}
 
-	return nil, variable, exper
+	if requestParam.EnableAutoTrackABEvent {
+		return nil, variable, exper
+	} else {
+		return nil, variable, beans.Experiment{}
+	}
 }
 
 func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment, property map[string]interface{}) error {

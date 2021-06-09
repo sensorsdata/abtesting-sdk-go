@@ -36,36 +36,26 @@ func main() {
 	// 进行初始化配置
 	abconfig := beans.ABTestConfig{
 		APIUrl:           "http://abtesting.saas.debugbox.sensorsdata.cn/api/v2/abtest/online/results?project-key=438B9364C98D54371751BA82F6484A1A03A5155E",
-		EnableEventCache: false,
+		EnableEventCache: true,
 		Timeout:          time.Duration(1),
 		SensorsAnalytics: sa,
 	}
 	// 初始化 A/B Testing SDK
 	sensorsAB := sensorsabtest.InitSensorsABTest(abconfig)
 	requestPara := beans.RequestParam{
-		//ExperimentParam:"wz_test_string",
-		ParamName: "btn_type",
+		ParamName:              "btn_type",
+		EnableAutoTrackABEvent: true, // 由 SDK 自动触发 A/B Testing 的埋点事件，这样就无需调用端触发了
 	}
-	// 直接从网络获取试验，由 SDK 触发埋点事件
-	_, value := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara, "default")
-	fmt.Println("根据试验变量 value 值做试验, value = ", value)
 
-	sa.Flush()
-	// 直接从网络获取试验，由调用方触发埋点事件
-	_, value, experiment := sensorsAB.AsyncFetchABTestExperiment("abcd123", true, requestPara, "default")
-	fmt.Println("根据试验变量 value 值做试验, 并且自己触发埋点。value = ", value)
+	// 直接从网络获取试验
+	err, value, _ := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara, "default")
 
-	// 优先从缓存获取试验，由 SDK 触发埋点事件
-	err, value := sensorsAB.FastFetchABTest("abcd123", true, requestPara, 342)
-	if err != nil {
-		// TODO 根据返回值做试验
-	} else {
-		// TODO  异常场景下的处理
+	requestPara = beans.RequestParam{
+		ParamName:              "btn_type",
+		EnableAutoTrackABEvent: false, // 无需调用端触发 A/B Testing 埋点事件
 	}
-	fmt.Println("根据试验变量 value 值做试验, value = ", value)
-
 	// 优先从缓存获取试验，并自己触发埋点
-	err, value, experiment = sensorsAB.FastFetchABTestExperiment("abcd123", true, requestPara, "test")
+	err, value, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara, "test")
 	if err == nil {
 		// 触发埋点事件
 		_ = sensorsAB.TrackABTestTrigger("login123", true, experiment, map[string]interface{}{
