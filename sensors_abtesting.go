@@ -105,7 +105,7 @@ func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
 	}
 
 	if abConfig.Timeout <= 0 {
-		config.Timeout = 3
+		config.Timeout = 3 * 1000
 	}
 
 	config.SensorsAnalytics = abConfig.SensorsAnalytics

@@ -44,19 +44,21 @@ func main() {
 	sensorsAB := sensorsabtest.InitSensorsABTest(abconfig)
 	requestPara := beans.RequestParam{
 		ParamName:              "btn_type",
+		DefaultValue:           "default",
 		EnableAutoTrackABEvent: true, // 由 SDK 自动触发 A/B Testing 的埋点事件，这样就无需调用端触发了
 	}
 
 	// 直接从网络获取试验
-	err, value, _ := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara, "default")
+	err, value, _ := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara)
 	fmt.Println("根据试验变量 value 值做试验, value = ", value)
 
 	requestPara = beans.RequestParam{
 		ParamName:              "btn_type",
+		DefaultValue:           "default",
 		EnableAutoTrackABEvent: false, // 无需调用端触发 A/B Testing 埋点事件
 	}
 	// 优先从缓存获取试验，并自己触发埋点
-	err, value, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara, "test")
+	err, value, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara)
 	if err == nil {
 		// 触发埋点事件
 		_ = sensorsAB.TrackABTestTrigger(experiment, map[string]interface{}{

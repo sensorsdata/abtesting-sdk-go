@@ -24,10 +24,10 @@ var isFirstEvent = true
 // 埋点事件上次触发的时间
 var lastTimeEvent string
 
-func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
-	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(sensors.config.Timeout)*time.Second)
+func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
+	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(sensors.config.Timeout)*time.Millisecond)
 	if err != nil {
-		return err, defaultValue, beans.Experiment{}
+		return err, requestParam.DefaultValue, beans.Experiment{}
 	}
 
 	var experimentParam = requestParam.ParamName
@@ -35,7 +35,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 	for _, experiment := range experiments {
 		// 遍历试验变量
 		for _, variable := range experiment.VariableList {
-			if experimentParam == variable.Name && isEqualType(defaultValue, variable) {
+			if experimentParam == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
 				if isTrack {
 					trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
 					saveEvent2Cache(distinctId, experiment, sensors)
@@ -48,16 +48,16 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 		}
 	}
 
-	return nil, defaultValue, beans.Experiment{}
+	return nil, requestParam.DefaultValue, beans.Experiment{}
 }
 
-func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
-	var tempVariable = defaultValue
+func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
+	var tempVariable = requestParam.DefaultValue
 	tempExperiment, ok := loadExperimentCache(distinctId)
 	if tempExperiment == nil || !ok {
-		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, false)
+		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, false)
 		if error != nil {
-			return error, defaultValue, beans.Experiment{}
+			return error, requestParam.DefaultValue, beans.Experiment{}
 		}
 		// 缓存试验
 		saveExperiment2Cache(distinctId, tempExperiment.(beans.Experiment), sensors.config.ExperimentCacheTime)
@@ -66,7 +66,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		te, ok := tempExperiment.(beans.Experiment)
 		if ok {
 			for _, variable := range te.VariableList {
-				if requestParam.ParamName == variable.Name && isEqualType(defaultValue, variable) {
+				if requestParam.ParamName == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
 					tempVariable = variable
 					break
 				}
