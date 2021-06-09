@@ -35,11 +35,6 @@ type ABTestConfig struct {
 	APIUrl string
 
 	/**
-	网络请求超时时间
-	*/
-	Timeout time.Duration
-
-	/**
 	用于 SDK 埋点 SensorsAnalytics
 	*/
 	SensorsAnalytics sensorsanalytics.SensorsAnalytics

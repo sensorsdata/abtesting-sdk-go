@@ -102,8 +102,8 @@ func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
 		config.EventCacheTime = 24 * 60 * 60
 	}
 
-	if abConfig.Timeout <= 0 {
-		config.Timeout = 3 * 1000
+	if abConfig.TimeoutMilliseconds <= 0 {
+		config.TimeoutMilliseconds = 3 * 1000
 	}
 
 	config.SensorsAnalytics = abConfig.SensorsAnalytics
