@@ -1,6 +1,10 @@
 package beans
 
 type Experiment struct {
+	// distinct_id 标识
+	DistinctId string
+	// 是否是登录 id
+	IsLoginId bool
 	// 试验 ID
 	AbtestExperimentId string `json:"abtest_experiment_id"`
 	// 试验内分组 ID

@@ -24,27 +24,9 @@ func InitSensorsABTest(abConfig beans.ABTestConfig) SensorsABTest {
 }
 
 /*
-	拉取最新试验变量，由 SDK 内部触发 $ABTestTrigger 埋点事件
+	拉取最新试验计划
 */
-func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam, defaultValue interface{}) (error, interface{}) {
-	_, err := checkRequestParams(distinctId)
-	if err != nil {
-		return err, defaultValue
-	}
-
-	err, variable, _ := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, true)
-
-	if err != nil {
-		return err, defaultValue
-	}
-
-	return nil, variable
-}
-
-/*
-	拉取最新试验计划，SDK 不触发 $ABTestTrigger 埋点事件
-*/
-func (sensors *SensorsABTest) AsyncFetchABTestExperiment(distinctId string, isLoginId bool, requestParam beans.RequestParam,
+func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam,
 	defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
 	_, err := checkRequestParams(distinctId)
 	if err != nil {
@@ -61,28 +43,9 @@ func (sensors *SensorsABTest) AsyncFetchABTestExperiment(distinctId string, isLo
 }
 
 /*
-	优先从缓存获取试验变量，如果缓存没有则从网络拉取，并且 SDK 内部触发 $ABTestTrigger 埋点事件
+	优先从缓存获取试验变量，如果缓存没有则从网络拉取
 */
 func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam,
-	defaultValue interface{}) (error, interface{}) {
-	_, err := checkRequestParams(distinctId)
-	if err != nil {
-		return err, defaultValue
-	}
-
-	err, variable, _ := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, defaultValue, true)
-
-	if err != nil {
-		return err, defaultValue
-	}
-
-	return nil, variable
-}
-
-/*
-	优先从缓存获取试验变量，如果缓存没有则从网络拉取，并且 SDK 不触发 $ABTestTrigger 埋点事件
-*/
-func (sensors *SensorsABTest) FastFetchABTestExperiment(distinctId string, isLoginId bool, requestParam beans.RequestParam,
 	defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
 	_, err := checkRequestParams(distinctId)
 	if err != nil {
