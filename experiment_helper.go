@@ -41,6 +41,8 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 					saveEvent2Cache(distinctId, experiment, sensors)
 				}
 				// 回调试验变量给客户
+				experiment.DistinctId = distinctId
+				experiment.IsLoginId = isLoginId
 				return nil, variable.Value, experiment
 			}
 		}
@@ -76,6 +78,8 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 	if ok && isTrack {
 		trackABTestEvent(distinctId, isLoginId, te, sensors, nil)
 	}
+	te.DistinctId = distinctId
+	te.IsLoginId = isLoginId
 	return nil, tempVariable, te
 }
 
