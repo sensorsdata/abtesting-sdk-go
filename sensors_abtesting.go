@@ -26,8 +26,7 @@ func InitSensorsABTest(abConfig beans.ABTestConfig) SensorsABTest {
 /*
 	拉取最新试验计划
 */
-func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam,
-	defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
+func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error error, variable interface{}, experiment beans.Experiment) {
 	_, err := checkRequestParams(distinctId)
 	if err != nil {
 		return err, nil, beans.Experiment{}
@@ -36,7 +35,7 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
-		return err, defaultValue, beans.Experiment{}
+		return err, requestParam.DefaultValue, beans.Experiment{}
 	}
 
 	if requestParam.EnableAutoTrackABEvent {
@@ -49,8 +48,7 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 /*
 	优先从缓存获取试验变量，如果缓存没有则从网络拉取
 */
-func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam,
-	defaultValue interface{}) (error error, variable interface{}, experiment beans.Experiment) {
+func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error error, variable interface{}, experiment beans.Experiment) {
 	_, err := checkRequestParams(distinctId)
 	if err != nil {
 		return err, nil, beans.Experiment{}
@@ -59,7 +57,7 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
-		return err, defaultValue, beans.Experiment{}
+		return err, requestParam.DefaultValue, beans.Experiment{}
 	}
 
 	if requestParam.EnableAutoTrackABEvent {
