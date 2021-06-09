@@ -40,9 +40,9 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 	}
 
 	if requestParam.EnableAutoTrackABEvent {
-		return nil, variable, exper
-	} else {
 		return nil, variable, beans.Experiment{}
+	} else {
+		return nil, variable, exper
 	}
 }
 
@@ -63,18 +63,18 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 	}
 
 	if requestParam.EnableAutoTrackABEvent {
-		return nil, variable, exper
-	} else {
 		return nil, variable, beans.Experiment{}
+	} else {
+		return nil, variable, exper
 	}
 }
 
-func (sensors *SensorsABTest) TrackABTestTrigger(distinctId string, isLoginId bool, experiment beans.Experiment, property map[string]interface{}) error {
-	_, err := checkRequestParams(distinctId)
+func (sensors *SensorsABTest) TrackABTestTrigger(experiment beans.Experiment, property map[string]interface{}) error {
+	_, err := checkRequestParams(experiment.DistinctId)
 	if err != nil {
 		return err
 	}
-	trackABTestEvent(distinctId, isLoginId, experiment, sensors, property)
+	trackABTestEvent(experiment.DistinctId, experiment.IsLoginId, experiment, sensors, property)
 	return nil
 }
 
