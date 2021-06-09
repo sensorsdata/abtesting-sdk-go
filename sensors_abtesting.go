@@ -27,7 +27,10 @@ func InitSensorsABTest(abConfig beans.ABTestConfig) SensorsABTest {
 	拉取最新试验计划
 */
 func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error error, variable interface{}, experiment beans.Experiment) {
-	_, err := checkRequestParams(distinctId)
+	err := checkId(distinctId)
+	if err == nil {
+		err = checkRequestParams(requestParam)
+	}
 	if err != nil {
 		return err, nil, beans.Experiment{}
 	}
@@ -49,7 +52,10 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 	优先从缓存获取试验变量，如果缓存没有则从网络拉取
 */
 func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error error, variable interface{}, experiment beans.Experiment) {
-	_, err := checkRequestParams(distinctId)
+	err := checkId(distinctId)
+	if err == nil {
+		err = checkRequestParams(requestParam)
+	}
 	if err != nil {
 		return err, nil, beans.Experiment{}
 	}
@@ -68,7 +74,7 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 }
 
 func (sensors *SensorsABTest) TrackABTestTrigger(experiment beans.Experiment, property map[string]interface{}) error {
-	_, err := checkRequestParams(experiment.DistinctId)
+	err := checkId(experiment.DistinctId)
 	if err != nil {
 		return err
 	}
@@ -77,11 +83,22 @@ func (sensors *SensorsABTest) TrackABTestTrigger(experiment beans.Experiment, pr
 }
 
 // 检查请求参数是否合法
-func checkRequestParams(distinctId string) (bool, error) {
-	if distinctId == "" {
-		return false, errors.New("DistinctId must not be empty")
+func checkRequestParams(param beans.RequestParam) error {
+	if param.ParamName == "" {
+		return errors.New("RequestParam.ParamName must not be empty")
 	}
-	return true, nil
+
+	if param.DefaultValue == nil {
+		return errors.New("RequestParam.DefaultValue must not be nil")
+	}
+	return nil
+}
+
+func checkId(id string) error {
+	if id == "" {
+		return errors.New("DistinctId must not be empty")
+	}
+	return nil
 }
 
 func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
