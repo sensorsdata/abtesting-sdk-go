@@ -33,7 +33,7 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, defaultValue, requestParam.EnableAutoTrackABEvent)
+	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
@@ -56,7 +56,7 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, defaultValue, requestParam.EnableAutoTrackABEvent)
+	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
 		return err, defaultValue, beans.Experiment{}
