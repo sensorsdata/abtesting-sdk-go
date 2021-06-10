@@ -41,7 +41,6 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 			if experimentParam == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
 				if isTrack {
 					trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
-					saveEvent2Cache(distinctId, experiment, sensors)
 				}
 				// 回调试验变量给客户
 				experiment.DistinctId = distinctId
@@ -98,6 +97,7 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 		return
 	}
 
+	saveEvent2Cache(distinctId, experiment, sensors)
 	if properties == nil {
 		properties = map[string]interface{}{
 			"abtest_experiment_id":       experiment.AbtestExperimentId,
