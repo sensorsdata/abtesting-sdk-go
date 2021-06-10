@@ -25,6 +25,9 @@ var isFirstEvent = true
 var lastTimeEvent string
 
 func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
+	if requestParam.TimeoutMilliseconds <= 0 {
+		requestParam.TimeoutMilliseconds = 3 * 1000
+	}
 	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(requestParam.TimeoutMilliseconds)*time.Millisecond)
 	if err != nil {
 		return err, requestParam.DefaultValue, beans.Experiment{}
