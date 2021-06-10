@@ -91,6 +91,10 @@ func checkRequestParams(param beans.RequestParam) error {
 	if param.DefaultValue == nil {
 		return errors.New("RequestParam.DefaultValue must not be nil")
 	}
+
+	if param.TimeoutMilliseconds <= 0 {
+		param.TimeoutMilliseconds = 3 * 1000
+	}
 	return nil
 }
 
