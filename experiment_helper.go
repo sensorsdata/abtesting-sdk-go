@@ -207,7 +207,7 @@ func removeCache(distinctId string, removeCache func(id string), timeout time.Du
 		if timeout == 0 {
 			d = 24 * time.Hour
 		} else {
-			d = timeout * time.Second
+			d = timeout * time.Minute
 		}
 		t := time.NewTicker(d)
 		defer t.Stop()

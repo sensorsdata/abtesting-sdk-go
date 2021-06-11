@@ -7,7 +7,7 @@ import (
 
 type ABTestConfig struct {
 	/*
-		试验缓存时间，单位是秒
+		试验缓存时间，单位是分钟
 	*/
 	ExperimentCacheTime time.Duration
 	/*
@@ -16,7 +16,7 @@ type ABTestConfig struct {
 	ExperimentCacheSize int
 
 	/*
-		$ABTestTrigger 事件缓存时间，单位是秒
+		$ABTestTrigger 事件缓存时间，单位是分钟
 	*/
 	EventCacheTime time.Duration
 	/*
