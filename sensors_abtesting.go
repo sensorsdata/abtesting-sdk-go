@@ -16,9 +16,10 @@ type SensorsABTest struct {
 	sensorsAnalytics sensorsanalytics.SensorsAnalytics
 }
 
-func InitSensorsABTest(abConfig beans.ABTestConfig) SensorsABTest {
-	return SensorsABTest{
-		config:           initConfig(abConfig),
+func InitSensorsABTest(abConfig beans.ABTestConfig) (error, SensorsABTest) {
+	err, copyConfig := initConfig(abConfig)
+	return err, SensorsABTest{
+		config:           copyConfig,
 		sensorsAnalytics: abConfig.SensorsAnalytics,
 	}
 }
@@ -94,7 +95,11 @@ func checkId(id string) error {
 	return nil
 }
 
-func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
+func initConfig(abConfig beans.ABTestConfig) (error, beans.ABTestConfig) {
+	if abConfig.APIUrl == "" {
+		return errors.New("APIUrl must not be null or empty"), abConfig
+	}
+
 	var config = beans.ABTestConfig{}
 	if abConfig.ExperimentCacheSize <= 0 {
 		config.ExperimentCacheSize = 4096
@@ -124,5 +129,5 @@ func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
 	config.EnableEventCache = abConfig.EnableEventCache
 	config.APIUrl = abConfig.APIUrl
 	initCache(config)
-	return config
+	return nil, config
 }

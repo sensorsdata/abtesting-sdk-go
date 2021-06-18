@@ -69,7 +69,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		if ok {
 			for _, variable := range te.VariableList {
 				if requestParam.ParamName == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
-					tempVariable = variable
+					tempVariable = variable.Value
 					break
 				}
 			}
@@ -86,6 +86,10 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 }
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
+	if sensors.config.SensorsAnalytics.C == nil {
+		return
+	}
+
 	// 是白名单，则不触发 $ABTestTrigger 事件
 	if experiment.IsWhiteList {
 		return
