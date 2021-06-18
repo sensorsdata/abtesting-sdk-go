@@ -98,18 +98,26 @@ func initConfig(abConfig beans.ABTestConfig) beans.ABTestConfig {
 	var config = beans.ABTestConfig{}
 	if abConfig.ExperimentCacheSize <= 0 {
 		config.ExperimentCacheSize = 4096
+	} else {
+		config.ExperimentCacheTime = abConfig.ExperimentCacheTime
 	}
 
 	if abConfig.EventCacheSize <= 0 {
 		config.EventCacheSize = 4096
+	} else {
+		config.EventCacheTime = abConfig.EventCacheTime
 	}
 
 	if abConfig.ExperimentCacheTime <= 0 || abConfig.ExperimentCacheTime > 24*60 {
 		config.ExperimentCacheTime = 24 * 60
+	} else {
+		config.ExperimentCacheTime = abConfig.ExperimentCacheTime
 	}
 
 	if abConfig.EventCacheTime <= 0 || abConfig.EventCacheTime > 24*60 {
 		config.EventCacheTime = 24 * 60
+	} else {
+		config.EventCacheTime = abConfig.EventCacheTime
 	}
 
 	config.SensorsAnalytics = abConfig.SensorsAnalytics
