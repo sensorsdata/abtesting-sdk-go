@@ -100,12 +100,12 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	saveEvent2Cache(distinctId, experiment, sensors)
 	if properties == nil {
 		properties = map[string]interface{}{
-			"abtest_experiment_id":       experiment.AbtestExperimentId,
-			"abtest_experiment_group_id": experiment.AbtestExperimentGroupId,
+			"$abtest_experiment_id":       experiment.AbtestExperimentId,
+			"$abtest_experiment_group_id": experiment.AbtestExperimentGroupId,
 		}
 	} else {
-		properties["abtest_experiment_id"] = experiment.AbtestExperimentId
-		properties["abtest_experiment_group_id"] = experiment.AbtestExperimentGroupId
+		properties["$abtest_experiment_id"] = experiment.AbtestExperimentId
+		properties["$abtest_experiment_group_id"] = experiment.AbtestExperimentGroupId
 	}
 
 	currentTime := time.Now().Format("2006-01-02")
