@@ -28,26 +28,20 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 	if requestParam.TimeoutMilliseconds <= 0 {
 		requestParam.TimeoutMilliseconds = 3 * 1000
 	}
-	experiments, err := utils.RequestExperiment(sensors.config.APIUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(requestParam.TimeoutMilliseconds)*time.Millisecond)
+	experiments, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
 	if err != nil {
 		return err, requestParam.DefaultValue, beans.Experiment{}
 	}
 
-	var experimentParam = requestParam.ParamName
-	// 遍历试验
-	for _, experiment := range experiments {
-		// 遍历试验变量
-		for _, variable := range experiment.VariableList {
-			if experimentParam == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
-				if isTrack {
-					trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
-				}
-				// 回调试验变量给客户
-				experiment.DistinctId = distinctId
-				experiment.IsLoginId = isLoginId
-				return nil, variable.Value, experiment
-			}
+	variable, tempExperiment := filterExperiment(requestParam, experiments)
+	if tempExperiment.AbtestExperimentId != "" {
+		if isTrack {
+			trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
 		}
+		// 回调试验变量给客户
+		experiment.DistinctId = distinctId
+		experiment.IsLoginId = isLoginId
+		return nil, variable, experiment
 	}
 
 	return nil, requestParam.DefaultValue, beans.Experiment{}
@@ -55,34 +49,62 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 
 func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error error, variable interface{}, experiment beans.Experiment) {
 	var tempVariable = requestParam.DefaultValue
-	tempExperiment, ok := loadExperimentCache(distinctId)
-	if tempExperiment == nil || !ok {
-		error, tempVariable, tempExperiment = loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, false)
-		if error != nil {
-			return error, requestParam.DefaultValue, beans.Experiment{}
+	var tempExperiment beans.Experiment
+	tempExperiments, ok := loadExperimentCache(distinctId)
+	if tempExperiments == nil || !ok {
+		// 从网络请求试验
+		experiments, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
+		if err != nil {
+			return err, requestParam.DefaultValue, beans.Experiment{}
 		}
+
 		// 缓存试验
-		saveExperiment2Cache(distinctId, tempExperiment.(beans.Experiment), sensors.config.ExperimentCacheTime)
+		saveExperiment2Cache(distinctId, experiments, sensors.config.ExperimentCacheTime)
+		// 筛选试验
+		variable, tempExperiment := filterExperiment(requestParam, experiments)
+		if tempExperiment.AbtestExperimentId != "" {
+			if isTrack {
+				trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
+			}
+			// 回调试验变量给客户
+			experiment.DistinctId = distinctId
+			experiment.IsLoginId = isLoginId
+			return nil, variable, experiment
+		}
 	} else {
+		tempVariable, tempExperiment = filterExperiment(requestParam, tempExperiments.([]beans.Experiment))
+	}
+
+	if ok && isTrack {
+		trackABTestEvent(distinctId, isLoginId, tempExperiment, sensors, nil)
+	}
+	tempExperiment.DistinctId = distinctId
+	tempExperiment.IsLoginId = isLoginId
+	return nil, tempVariable, tempExperiment
+}
+
+// 从网络加载试验
+func requestExperimentOnNetwork(apiUrl string, distinctId string, isLoginId bool, requestParam beans.RequestParam) ([]beans.Experiment, error) {
+	if requestParam.TimeoutMilliseconds <= 0 {
+		requestParam.TimeoutMilliseconds = 3 * 1000
+	}
+	return utils.RequestExperiment(apiUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(requestParam.TimeoutMilliseconds)*time.Millisecond)
+}
+
+// 筛选试验
+func filterExperiment(requestParam beans.RequestParam, experiments []beans.Experiment) (interface{}, beans.Experiment) {
+	var experimentParam = requestParam.ParamName
+	// 遍历试验
+	for _, experiment := range experiments {
 		// 遍历试验变量
-		te, ok := tempExperiment.(beans.Experiment)
-		if ok {
-			for _, variable := range te.VariableList {
-				if requestParam.ParamName == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
-					tempVariable = variable.Value
-					break
-				}
+		for _, variable := range experiment.VariableList {
+			if experimentParam == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
+				return variable.Value, experiment
 			}
 		}
 	}
 
-	te, ok := tempExperiment.(beans.Experiment)
-	if ok && isTrack {
-		trackABTestEvent(distinctId, isLoginId, te, sensors, nil)
-	}
-	te.DistinctId = distinctId
-	te.IsLoginId = isLoginId
-	return nil, tempVariable, te
+	return nil, beans.Experiment{}
 }
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
@@ -166,7 +188,7 @@ func loadExperimentCache(distinctId string) (interface{}, bool) {
 }
 
 // 保存试验到缓存
-func saveExperiment2Cache(distinctId string, experiment beans.Experiment, timeout time.Duration) {
+func saveExperiment2Cache(distinctId string, experiment []beans.Experiment, timeout time.Duration) {
 	experimentLock.Lock()
 	defer experimentLock.Unlock()
 	experimentCache.Add(distinctId, experiment)
