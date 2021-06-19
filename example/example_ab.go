@@ -50,16 +50,16 @@ func main() {
 	}
 
 	// 直接从网络获取试验
-	err, value, _ := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara)
-	fmt.Println("根据试验变量 value 值做试验, value = ", value)
+	err, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara)
+	fmt.Println("根据试验变量 value 值做试验, value = ", experiment.Result)
 
 	requestPara = beans.RequestParam{
-		ParamName:              "btn_type",
-		DefaultValue:           "default",
+		ParamName:              "a",
+		DefaultValue:           1,
 		EnableAutoTrackABEvent: false, // 无需调用端触发 A/B Testing 埋点事件
 	}
 	// 优先从缓存获取试验，并自己触发埋点
-	err, value, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara)
+	err, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara)
 	if err == nil {
 		// 触发埋点事件
 		_ = sensorsAB.TrackABTestTrigger(experiment, map[string]interface{}{
@@ -67,6 +67,6 @@ func main() {
 			"andoter": "andoter",
 			"antway":  "dddddd",
 		})
-		fmt.Println("根据试验变量 value 值做试验, 并且自己触发埋点。 value = ", value)
+		fmt.Println("根据试验变量 value 值做试验, 并且自己触发埋点。 value = ", experiment.Result)
 	}
 }
