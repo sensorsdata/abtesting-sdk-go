@@ -59,7 +59,7 @@ func main() {
 		EnableAutoTrackABEvent: false, // 无需调用端触发 A/B Testing 埋点事件
 	}
 	// 优先从缓存获取试验，并自己触发埋点
-	err, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara)
+	err, experiment = sensorsAB.FastFetchABTest("abcd123", true, requestPara)
 	if err == nil {
 		// 触发埋点事件
 		_ = sensorsAB.TrackABTestTrigger(experiment, map[string]interface{}{
