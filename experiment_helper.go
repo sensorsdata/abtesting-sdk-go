@@ -1,6 +1,7 @@
 package sensorsabtest
 
 import (
+	"errors"
 	"fmt"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"github.com/sensorsdata/abtesting-sdk-go/utils"
@@ -99,9 +100,11 @@ func filterExperiment(requestParam beans.RequestParam, experiments []beans.Exper
 	for _, experiment := range experiments {
 		// 遍历试验变量
 		for _, variable := range experiment.VariableList {
-			ok, value := castValue(requestParam.DefaultValue, variable)
-			if experimentParam == variable.Name && ok {
-				return value, experiment
+			if experimentParam == variable.Name {
+				value, err := castValue(requestParam.DefaultValue, variable)
+				if err == nil {
+					return value, experiment
+				}
 			}
 		}
 	}
@@ -200,24 +203,24 @@ func saveExperiment2Cache(distinctId string, experiment []beans.Experiment, time
 	}, timeout)
 }
 
-func castValue(defaultValue interface{}, variables beans.Variables) (bool, interface{}) {
+func castValue(defaultValue interface{}, variables beans.Variables) (interface{}, error) {
 	var defaultType = reflect.TypeOf(defaultValue)
 	if variables.Type == "STRING" && "string" == defaultType.String() {
-		return true, variables.Value
+		return variables.Value, nil
 	} else if variables.Type == "INTEGER" && "int" == defaultType.String() {
-		return true, strconv.Atoi(variables.Value)
+		return strconv.Atoi(variables.Value), nil
 	} else if variables.Type == "INTEGER" && "int8" == defaultType.String() {
-		return true, strconv.ParseInt(variables.Value, 10, 8)
+		return strconv.ParseInt(variables.Value, 10, 8)
 	} else if variables.Type == "INTEGER" && "int16" == defaultType.String() {
-		return true, strconv.ParseInt(variables.Value, 10, 16)
+		return strconv.ParseInt(variables.Value, 10, 16)
 	} else if variables.Type == "INTEGER" && "int32" == defaultType.String() {
-		return true, strconv.ParseInt(variables.Value, 10, 32)
+		return strconv.ParseInt(variables.Value, 10, 32)
 	} else if variables.Type == "INTEGER" && "int64" == defaultType.String() {
-		return true, strconv.ParseInt(variables.Value, 10, 64)
+		return strconv.ParseInt(variables.Value, 10, 64)
 	} else if variables.Type == "BOOLEAN" && "bool" == defaultType.String() {
-		return true, strconv.ParseBool(variables.Value)
+		return strconv.ParseBool(variables.Value)
 	}
-	return false, nil
+	return defaultValue, errors.New("castValue No Type Found")
 }
 
 // 拼接网络请求参数
