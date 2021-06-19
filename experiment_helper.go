@@ -26,16 +26,18 @@ var isFirstEvent = true
 // 埋点事件上次触发的时间
 var lastTimeEvent string
 
-func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error, interface{}, beans.Experiment) {
+func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error, beans.Experiment) {
 	if requestParam.TimeoutMilliseconds <= 0 {
 		requestParam.TimeoutMilliseconds = 3 * 1000
 	}
 	experiments, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
 	if err != nil {
-		return err, requestParam.DefaultValue, beans.Experiment{}
+		return err, beans.Experiment{
+			Result: requestParam.DefaultValue,
+		}
 	}
 
-	variable, experiment := filterExperiment(requestParam, experiments)
+	experiment := filterExperiment(requestParam, experiments)
 	if experiment.AbtestExperimentId != "" {
 		if isTrack {
 			trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
@@ -43,38 +45,32 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 		// 回调试验变量给客户
 		experiment.DistinctId = distinctId
 		experiment.IsLoginId = isLoginId
-		return nil, variable, experiment
+		return nil, experiment
 	}
 
-	return nil, requestParam.DefaultValue, beans.Experiment{}
+	return nil, beans.Experiment{
+		Result: requestParam.DefaultValue,
+	}
 }
 
-func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error, interface{}, beans.Experiment) {
-	var tempVariable = requestParam.DefaultValue
+func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error, beans.Experiment) {
 	var experiment beans.Experiment
-	tempExperiments, ok := loadExperimentCache(distinctId)
-	if tempExperiments == nil || !ok {
+	experiments, ok := loadExperimentCache(distinctId)
+	if experiments == nil || !ok {
 		// 从网络请求试验
 		experiments, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
 		if err != nil {
-			return err, requestParam.DefaultValue, beans.Experiment{}
+			return err, beans.Experiment{
+				Result: requestParam.DefaultValue,
+			}
 		}
 
 		// 缓存试验
 		saveExperiment2Cache(distinctId, experiments, sensors.config.ExperimentCacheTime)
 		// 筛选试验
-		variable, experiment := filterExperiment(requestParam, experiments)
-		if experiment.AbtestExperimentId != "" {
-			if isTrack {
-				trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
-			}
-			// 回调试验变量给客户
-			experiment.DistinctId = distinctId
-			experiment.IsLoginId = isLoginId
-			return nil, variable, experiment
-		}
+		experiment = filterExperiment(requestParam, experiments)
 	} else {
-		tempVariable, experiment = filterExperiment(requestParam, tempExperiments.([]beans.Experiment))
+		experiment = filterExperiment(requestParam, experiments.([]beans.Experiment))
 	}
 
 	if isTrack {
@@ -82,7 +78,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 	}
 	experiment.DistinctId = distinctId
 	experiment.IsLoginId = isLoginId
-	return nil, tempVariable, experiment
+	return nil, experiment
 }
 
 // 从网络加载试验
@@ -94,7 +90,7 @@ func requestExperimentOnNetwork(apiUrl string, distinctId string, isLoginId bool
 }
 
 // 筛选试验
-func filterExperiment(requestParam beans.RequestParam, experiments []beans.Experiment) (interface{}, beans.Experiment) {
+func filterExperiment(requestParam beans.RequestParam, experiments []beans.Experiment) beans.Experiment {
 	var experimentParam = requestParam.ParamName
 	// 遍历试验
 	for _, experiment := range experiments {
@@ -103,13 +99,16 @@ func filterExperiment(requestParam beans.RequestParam, experiments []beans.Exper
 			if experimentParam == variable.Name {
 				value, err := castValue(requestParam.DefaultValue, variable)
 				if err == nil {
-					return value, experiment
+					experiment.Result = value
+					return experiment
 				}
 			}
 		}
 	}
 
-	return nil, beans.Experiment{}
+	return beans.Experiment{
+		Result: requestParam.DefaultValue,
+	}
 }
 
 func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
