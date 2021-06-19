@@ -112,7 +112,7 @@ func initConfig(abConfig beans.ABTestConfig) (error, beans.ABTestConfig) {
 	if abConfig.ExperimentCacheSize <= 0 {
 		config.ExperimentCacheSize = 4096
 	} else {
-		config.ExperimentCacheTime = abConfig.ExperimentCacheTime
+		config.ExperimentCacheSize = abConfig.ExperimentCacheSize
 	}
 
 	if abConfig.EventCacheSize <= 0 {
