@@ -5,6 +5,8 @@ type Experiment struct {
 	DistinctId string
 	// 是否是登录 id
 	IsLoginId bool
+	// 试验变量值
+	Result interface{}
 	// 试验 ID
 	AbtestExperimentId string `json:"abtest_experiment_id"`
 	// 试验内分组 ID
