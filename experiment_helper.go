@@ -208,7 +208,7 @@ func castValue(defaultValue interface{}, variables beans.Variables) (interface{}
 	if variables.Type == "STRING" && "string" == defaultType.String() {
 		return variables.Value, nil
 	} else if variables.Type == "INTEGER" && "int" == defaultType.String() {
-		return strconv.Atoi(variables.Value), nil
+		return strconv.Atoi(variables.Value)
 	} else if variables.Type == "INTEGER" && "int8" == defaultType.String() {
 		return strconv.ParseInt(variables.Value, 10, 8)
 	} else if variables.Type == "INTEGER" && "int16" == defaultType.String() {
