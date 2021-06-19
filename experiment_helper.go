@@ -6,6 +6,7 @@ import (
 	"github.com/sensorsdata/abtesting-sdk-go/utils"
 	"github.com/sensorsdata/abtesting-sdk-go/utils/lru"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -98,8 +99,9 @@ func filterExperiment(requestParam beans.RequestParam, experiments []beans.Exper
 	for _, experiment := range experiments {
 		// 遍历试验变量
 		for _, variable := range experiment.VariableList {
-			if experimentParam == variable.Name && isEqualType(requestParam.DefaultValue, variable) {
-				return variable.Value, experiment
+			ok, value := castValue(requestParam.DefaultValue, variable)
+			if experimentParam == variable.Name && ok {
+				return value, experiment
 			}
 		}
 	}
@@ -198,17 +200,24 @@ func saveExperiment2Cache(distinctId string, experiment []beans.Experiment, time
 	}, timeout)
 }
 
-func isEqualType(defaultValue interface{}, variables beans.Variables) bool {
+func castValue(defaultValue interface{}, variables beans.Variables) (bool, interface{}) {
 	var defaultType = reflect.TypeOf(defaultValue)
 	if variables.Type == "STRING" && "string" == defaultType.String() {
-		return true
-	} else if variables.Type == "INTEGER" && ("int" == defaultType.String() || "int8" == defaultType.String() ||
-		"int16" == defaultType.String() || "int32" == defaultType.String() || "int64" == defaultType.String()) {
-		return true
+		return true, variables.Value
+	} else if variables.Type == "INTEGER" && "int" == defaultType.String() {
+		return true, strconv.Atoi(variables.Value)
+	} else if variables.Type == "INTEGER" && "int8" == defaultType.String() {
+		return true, strconv.ParseInt(variables.Value, 10, 8)
+	} else if variables.Type == "INTEGER" && "int16" == defaultType.String() {
+		return true, strconv.ParseInt(variables.Value, 10, 16)
+	} else if variables.Type == "INTEGER" && "int32" == defaultType.String() {
+		return true, strconv.ParseInt(variables.Value, 10, 32)
+	} else if variables.Type == "INTEGER" && "int64" == defaultType.String() {
+		return true, strconv.ParseInt(variables.Value, 10, 64)
 	} else if variables.Type == "BOOLEAN" && "bool" == defaultType.String() {
-		return true
+		return true, strconv.ParseBool(variables.Value)
 	}
-	return false
+	return false, nil
 }
 
 // 拼接网络请求参数

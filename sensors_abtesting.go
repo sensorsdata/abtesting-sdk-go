@@ -27,7 +27,7 @@ func InitSensorsABTest(abConfig beans.ABTestConfig) (error, SensorsABTest) {
 /*
 	拉取最新试验计划
 */
-func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error error, variable interface{}, experiment beans.Experiment) {
+func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error, interface{}, beans.Experiment) {
 	err := checkId(distinctId)
 	if err == nil {
 		err = checkRequestParams(requestParam)
@@ -36,19 +36,19 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
+	err, variable, experiment := loadExperimentFromNetwork(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
 		return err, requestParam.DefaultValue, beans.Experiment{}
 	}
 
-	return nil, variable, exper
+	return nil, variable, experiment
 }
 
 /*
 	优先从缓存获取试验变量，如果缓存没有则从网络拉取
 */
-func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error error, variable interface{}, experiment beans.Experiment) {
+func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error, interface{}, beans.Experiment) {
 	err := checkId(distinctId)
 	if err == nil {
 		err = checkRequestParams(requestParam)
@@ -57,13 +57,13 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 		return err, nil, beans.Experiment{}
 	}
 
-	err, variable, exper := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
+	err, variable, experiment := loadExperimentFromCache(sensors, distinctId, isLoginId, requestParam, requestParam.EnableAutoTrackABEvent)
 
 	if err != nil {
 		return err, requestParam.DefaultValue, beans.Experiment{}
 	}
 
-	return nil, variable, exper
+	return nil, variable, experiment
 }
 
 func (sensors *SensorsABTest) TrackABTestTrigger(experiment beans.Experiment, property map[string]interface{}) error {

@@ -22,7 +22,6 @@ import (
 	"github.com/sensorsdata/abtesting-sdk-go"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"github.com/sensorsdata/sa-sdk-go"
-	"time"
 )
 
 func main() {
@@ -37,11 +36,13 @@ func main() {
 	abconfig := beans.ABTestConfig{
 		APIUrl:           "http://abtesting.saas.debugbox.sensorsdata.cn/api/v2/abtest/online/results?project-key=438B9364C98D54371751BA82F6484A1A03A5155E",
 		EnableEventCache: true,
-		Timeout:          time.Duration(1),
 		SensorsAnalytics: sa,
 	}
 	// 初始化 A/B Testing SDK
-	sensorsAB := sensorsabtest.InitSensorsABTest(abconfig)
+	err, sensorsAB := sensorsabtest.InitSensorsABTest(abconfig)
+	if err != nil {
+		fmt.Println(err)
+	}
 	requestPara := beans.RequestParam{
 		ParamName:              "btn_type",
 		DefaultValue:           "default",
