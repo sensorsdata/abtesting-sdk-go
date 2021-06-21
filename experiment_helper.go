@@ -260,5 +260,5 @@ func removeCache(idExperiment string, removeCache func(id string), timeout time.
 
 // 拼接缓存唯一标识
 func getId(distinctId string, experiment beans.Experiment) string {
-	return distinctId + "$" + experiment.AbtestExperimentGroupId + "$" + experiment.AbtestExperimentId
+	return distinctId + "$" + experiment.AbtestExperimentId
 }
