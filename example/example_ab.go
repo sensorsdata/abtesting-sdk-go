@@ -26,7 +26,7 @@ import (
 
 func main() {
 	// 初始化埋点 SDK，使用 BatchConsumer
-	//consumer, _ := sensorsanalytics.InitBatchConsumer("http://10.130.6.4:8106/sa?project=default", 1, 5)
+	//consumer, _ := sensorsanalytics.InitBatchConsumer("", 1, 5)
 	// 初始化埋点 SDK，使用 ConcurrentLoggingConsumer
 	consumer, _ := sensorsanalytics.InitConcurrentLoggingConsumer("./log.data", false)
 	sa := sensorsanalytics.InitSensorsAnalytics(consumer, "default", false)
@@ -34,7 +34,7 @@ func main() {
 	defer sa.Close()
 	// 进行初始化配置
 	abconfig := beans.ABTestConfig{
-		APIUrl:           "http://abtesting.saas.debugbox.sensorsdata.cn/api/v2/abtest/online/results?project-key=438B9364C98D54371751BA82F6484A1A03A5155E",
+		APIUrl:           "",
 		EnableEventCache: true,
 		SensorsAnalytics: sa,
 	}
@@ -44,18 +44,18 @@ func main() {
 		fmt.Println(err)
 	}
 	requestPara := beans.RequestParam{
-		ParamName:              "btn_type",
-		DefaultValue:           "default",
+		ParamName:              "o",
+		DefaultValue:           "{\"a\":\"Hello\",\"b\":\"World\"}",
 		EnableAutoTrackABEvent: true, // 由 SDK 自动触发 A/B Testing 的埋点事件，这样就无需调用端触发了
 	}
 
 	// 直接从网络获取试验
-	err, experiment := sensorsAB.FastFetchABTest("abcd123", true, requestPara)
+	err, experiment := sensorsAB.AsyncFetchABTest("abcd123", true, requestPara)
 	fmt.Println("根据试验变量 value 值做试验, value = ", experiment.Result)
 
 	requestPara = beans.RequestParam{
-		ParamName:              "a",
-		DefaultValue:           1,
+		ParamName:              "btn_type",
+		DefaultValue:           "default",
 		EnableAutoTrackABEvent: false, // 无需调用端触发 A/B Testing 埋点事件
 	}
 	// 优先从缓存获取试验，并自己触发埋点

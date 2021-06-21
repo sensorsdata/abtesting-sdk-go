@@ -77,7 +77,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		experiment = filterExperiment(requestParam, experiments)
 	}
 
-	if isTrack {
+	if isTrack && experiment.AbtestExperimentId != "" {
 		trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
 	}
 	experiment.DistinctId = distinctId
