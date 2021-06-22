@@ -19,10 +19,10 @@ SensorsAnalytics SDK 是国内第一家开源商用版用户行为采集 SDK，�
 
 ## 贡献
 
-* 1.  在您的 GitHub 账户下 fork sa-sdk-android 开源项目；
-* 2.  根据您的需求在本地 clone 一份 sa-sdk-android 源码；
+* 1.  在您的 GitHub 账户下 fork abtesting-sdk-go 开源项目；
+* 2.  根据您的需求在本地 clone 一份 abtesting-sdk-go 源码；
 * 3.  您修改或者新增功能后，push 到您 fork 的远程分支；
-* 4.  创建 pull request，向 sa-sdk-android 官方开发分支提交合入请求；
+* 4.  创建 pull request，向 abtesting-sdk-go 官方开发分支提交合入请求；
 * 5.  神策 SDK 研发团队会及时 review 代码，测试通过后合入。
 
 
