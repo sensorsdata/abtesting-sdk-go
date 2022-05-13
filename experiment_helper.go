@@ -3,13 +3,14 @@ package sensorsabtest
 import (
 	"errors"
 	"fmt"
-	"github.com/sensorsdata/abtesting-sdk-go/beans"
-	"github.com/sensorsdata/abtesting-sdk-go/utils"
-	"github.com/sensorsdata/abtesting-sdk-go/utils/lru"
 	"reflect"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/sensorsdata/abtesting-sdk-go/beans"
+	"github.com/sensorsdata/abtesting-sdk-go/utils"
+	"github.com/sensorsdata/abtesting-sdk-go/utils/lru"
 )
 
 // 用户的试验缓存
@@ -40,7 +41,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 	experiment := filterExperiment(requestParam, experiments)
 	if experiment.AbtestExperimentId != "" {
 		if isTrack {
-			trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
+			trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil, requestParam.CustomIDs)
 		}
 		// 回调试验变量给客户
 		experiment.DistinctId = distinctId
@@ -57,7 +58,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 
 func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error, beans.Experiment) {
 	var experiment beans.Experiment
-	experiments, ok := loadExperimentCache(distinctId)
+	experiments, ok := loadExperimentCache(distinctId, isLoginId, requestParam.CustomIDs)
 	if experiments != nil || ok {
 		experiment = filterExperiment(requestParam, experiments.([]beans.Experiment))
 	}
@@ -72,13 +73,13 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		}
 
 		// 缓存试验
-		saveExperiment2Cache(distinctId, experiments, sensors.config.ExperimentCacheTime)
+		saveExperiment2Cache(distinctId, isLoginId, requestParam.CustomIDs, experiments, sensors.config.ExperimentCacheTime)
 		// 筛选试验
 		experiment = filterExperiment(requestParam, experiments)
 	}
 
 	if isTrack && experiment.AbtestExperimentId != "" {
-		trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil)
+		trackABTestEvent(distinctId, isLoginId, experiment, sensors, nil, requestParam.CustomIDs)
 	}
 	experiment.DistinctId = distinctId
 	experiment.IsLoginId = isLoginId
@@ -115,7 +116,7 @@ func filterExperiment(requestParam beans.RequestParam, experiments []beans.Exper
 	}
 }
 
-func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}) {
+func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}, customIDs map[string]interface{}) {
 	if sensors.config.SensorsAnalytics.C == nil {
 		return
 	}
@@ -126,12 +127,12 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	}
 
 	// 如果在缓存中，则不触发 $ABTestTrigger 事件
-	_, ok := loadEventFromCache(getId(distinctId, experiment))
+	_, ok := loadEventFromCache(distinctId, customIDs, experiment)
 	if ok {
 		return
 	}
 
-	saveEvent2Cache(distinctId, experiment, sensors)
+	saveEvent2Cache(distinctId, customIDs, experiment, sensors)
 	if properties == nil {
 		properties = map[string]interface{}{
 			"$abtest_experiment_id":       experiment.AbtestExperimentId,
@@ -168,41 +169,44 @@ func initCache(config beans.ABTestConfig) {
 }
 
 // 从缓存读取 $ABTestTrigger
-func loadEventFromCache(idExperiment string) (interface{}, bool) {
+func loadEventFromCache(distinctId string, customIDs map[string]interface{}, experiment beans.Experiment) (interface{}, bool) {
 	eventsLock.Lock()
 	defer eventsLock.Unlock()
-	return eventsCache.Get(idExperiment)
+	idEvent := getEventKey(distinctId, customIDs, experiment)
+	return eventsCache.Get(idEvent)
 }
 
 // 保存 $ABTestTrigger 到缓存中
-func saveEvent2Cache(distinctId string, experiment beans.Experiment, sensors *SensorsABTest) {
+func saveEvent2Cache(distinctId string, customIDs map[string]interface{}, experiment beans.Experiment, sensors *SensorsABTest) {
 	// 缓存 $ABTestTrigger 事件
 	if sensors.config.EnableEventCache {
 		eventsLock.Lock()
 		defer eventsLock.Unlock()
-		idExperiment := getId(distinctId, experiment)
-		eventsCache.Add(idExperiment, experiment)
+		idEvent := getEventKey(distinctId, customIDs, experiment)
+		eventsCache.Add(idEvent, experiment)
 		// 进行清理缓存
-		removeCache(idExperiment, func(id string) {
+		removeCache(idEvent, func(id string) {
 			eventsCache.Remove(id)
 		}, sensors.config.EventCacheTime)
 	}
 }
 
 // 从缓存读取试验
-func loadExperimentCache(distinctId string) (interface{}, bool) {
+func loadExperimentCache(distinctId string, isLoginId bool, customIds map[string]interface{}) (interface{}, bool) {
 	experimentLock.Lock()
 	defer experimentLock.Unlock()
-	return experimentCache.Get(distinctId)
+	idKey := getExperimentKey(distinctId, customIds, isLoginId)
+	return experimentCache.Get(idKey)
 }
 
 // 保存试验到缓存
-func saveExperiment2Cache(distinctId string, experiment []beans.Experiment, timeout time.Duration) {
+func saveExperiment2Cache(distinctId string, isLoginId bool, customIds map[string]interface{}, experiments []beans.Experiment, timeout time.Duration) {
 	experimentLock.Lock()
 	defer experimentLock.Unlock()
-	experimentCache.Add(distinctId, experiment)
+	idKey := getExperimentKey(distinctId, customIds, isLoginId)
+	experimentCache.Add(idKey, experiments)
 	// 进行清理缓存
-	removeCache(distinctId, func(id string) {
+	removeCache(idKey, func(id string) {
 		experimentCache.Remove(id)
 	}, timeout)
 }
@@ -238,7 +242,13 @@ func buildRequestParam(distinctId string, isLoginId bool, requestParam beans.Req
 
 	params["abtest_lib_version"] = SDK_VERSION
 	params["platform"] = LIB_NAME
-	params["properties"] = requestParam.Properties
+	if requestParam.Properties != nil && len(requestParam.Properties) > 0 {
+		params["custom_properties"] = requestParam.Properties
+	}
+	if requestParam.CustomIDs != nil && len(requestParam.CustomIDs) > 0 {
+		params["custom_ids"] = requestParam.CustomIDs
+	}
+
 	return params
 }
 
@@ -259,6 +269,10 @@ func removeCache(idExperiment string, removeCache func(id string), timeout time.
 }
 
 // 拼接缓存唯一标识
-func getId(distinctId string, experiment beans.Experiment) string {
-	return distinctId + "$" + experiment.AbtestExperimentId
+func getEventKey(distinctId string, customIds map[string]interface{}, experiment beans.Experiment) string {
+	return distinctId + "$" + utils.MapToJson(customIds) + "$" + experiment.AbtestExperimentId
+}
+
+func getExperimentKey(distinctId string, customIds map[string]interface{}, isLoginId bool) string {
+	return distinctId + "$" + utils.MapToJson(customIds) + "$" + strconv.FormatBool(isLoginId)
 }

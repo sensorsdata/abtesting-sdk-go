@@ -3,11 +3,12 @@ package sensorsabtest
 import (
 	"errors"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
+	"github.com/sensorsdata/abtesting-sdk-go/utils"
 	"github.com/sensorsdata/sa-sdk-go"
 )
 
 const (
-	SDK_VERSION = "0.0.1"
+	SDK_VERSION = "0.0.2"
 	LIB_NAME    = "Golang"
 )
 
@@ -79,7 +80,15 @@ func (sensors *SensorsABTest) TrackABTestTrigger(experiment beans.Experiment, pr
 	if err != nil {
 		return err
 	}
-	trackABTestEvent(experiment.DistinctId, experiment.IsLoginId, experiment, sensors, property)
+	return sensors.TrackABTestTriggerWithCustomId(experiment, nil, property)
+}
+
+func (sensors *SensorsABTest) TrackABTestTriggerWithCustomId(experiment beans.Experiment, customId map[string]interface{}, property map[string]interface{}) error {
+	err := checkId(experiment.DistinctId)
+	if err != nil {
+		return err
+	}
+	trackABTestEvent(experiment.DistinctId, experiment.IsLoginId, experiment, sensors, property, customId)
 	return nil
 }
 
@@ -93,7 +102,17 @@ func checkRequestParams(param beans.RequestParam) error {
 		return errors.New("RequestParam.DefaultValue must not be nil")
 	}
 
-	return nil
+	var err error
+	// 检查自定义属性
+	if param.Properties != nil && len(param.Properties) > 0 {
+		err = utils.CheckProperty(param.Properties)
+	}
+
+	// 检查自定义主体
+	if param.CustomIDs != nil && len(param.CustomIDs) > 0 {
+		err = utils.CheckCustomIds(param.CustomIDs)
+	}
+	return err
 }
 
 func checkId(id string) error {
