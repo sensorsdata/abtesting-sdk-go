@@ -16,9 +16,11 @@ limitations under the License.
 
 package lru
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
-// Cache is an LRU cache. It is not safe for concurrent access.
 type Cache struct {
 	// MaxEntries is the maximum number of cache entries before
 	// an item is evicted. Zero means no limit.
@@ -30,6 +32,7 @@ type Cache struct {
 
 	ll    *list.List
 	cache map[interface{}]*list.Element
+	lock  sync.RWMutex
 }
 
 // A Key may be any value that is comparable. See http://golang.org/ref/spec#Comparison_operators
@@ -53,6 +56,8 @@ func New(maxEntries int) *Cache {
 
 // Add adds a value to the cache.
 func (c *Cache) Add(key Key, value interface{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.cache == nil {
 		c.cache = make(map[interface{}]*list.Element)
 		c.ll = list.New()
@@ -65,12 +70,14 @@ func (c *Cache) Add(key Key, value interface{}) {
 	ele := c.ll.PushFront(&entry{key, value})
 	c.cache[key] = ele
 	if c.MaxEntries != 0 && c.ll.Len() > c.MaxEntries {
-		c.RemoveOldest()
+		c.removeOldest()
 	}
 }
 
 // Get looks up a key's value from the cache.
 func (c *Cache) Get(key Key) (value interface{}, ok bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.cache == nil {
 		return
 	}
@@ -83,6 +90,8 @@ func (c *Cache) Get(key Key) (value interface{}, ok bool) {
 
 // Remove removes the provided key from the cache.
 func (c *Cache) Remove(key Key) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.cache == nil {
 		return
 	}
@@ -92,7 +101,7 @@ func (c *Cache) Remove(key Key) {
 }
 
 // RemoveOldest removes the oldest item from the cache.
-func (c *Cache) RemoveOldest() {
+func (c *Cache) removeOldest() {
 	if c.cache == nil {
 		return
 	}
@@ -113,6 +122,8 @@ func (c *Cache) removeElement(e *list.Element) {
 
 // Len returns the number of items in the cache.
 func (c *Cache) Len() int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.cache == nil {
 		return 0
 	}
@@ -121,6 +132,8 @@ func (c *Cache) Len() int {
 
 // Clear purges all stored items from the cache.
 func (c *Cache) Clear() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.OnEvicted != nil {
 		for _, e := range c.cache {
 			kv := e.Value.(*entry)
