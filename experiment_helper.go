@@ -3,6 +3,7 @@ package sensorsabtest
 import (
 	"errors"
 	"fmt"
+	utils2 "github.com/sensorsdata/sa-sdk-go/utils"
 	"reflect"
 	"strconv"
 	"sync"
@@ -16,9 +17,10 @@ import (
 // 用户的试验缓存
 var experimentCache = lru.New(4096)
 var experimentLock = sync.Mutex{}
+var experimentTime = lru.New(4096)
 
 // $ABTestTrigger 事件缓存
-var eventsCache = lru.New(4096)
+var eventsTime = lru.New(4096)
 var eventsLock = sync.Mutex{}
 
 // 插件版本号标记位
@@ -58,12 +60,24 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 
 func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginId bool, requestParam beans.RequestParam, isTrack bool) (error, beans.Experiment) {
 	var experiment beans.Experiment
-	experiments, ok := loadExperimentCache(distinctId, isLoginId, requestParam.CustomIDs)
-	if experiments != nil || ok {
-		experiment = filterExperiment(requestParam, experiments.([]beans.Experiment))
+	var isRequestNetwork = false
+	idKey := getExperimentKey(distinctId, requestParam.CustomIDs, isLoginId)
+	if isExperimentExpired(idKey, sensors.config.ExperimentCacheTime) {
+		idKey := getExperimentKey(distinctId, requestParam.CustomIDs, isLoginId)
+		// 进行清理缓存
+		experimentCache.Remove(idKey)
+		isRequestNetwork = true
+	} else {
+		experiments, ok := loadExperimentCache(idKey)
+		if experiments != nil || ok {
+			experiment = filterExperiment(requestParam, experiments.([]beans.Experiment))
+		}
+		if experiments == nil || !ok || experiment.AbtestExperimentId == "" {
+			isRequestNetwork = true
+		}
 	}
 
-	if experiments == nil || !ok || experiment.AbtestExperimentId == "" {
+	if isRequestNetwork {
 		// 从网络请求试验
 		experiments, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
 		if err != nil {
@@ -73,7 +87,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		}
 
 		// 缓存试验
-		saveExperiment2Cache(distinctId, isLoginId, requestParam.CustomIDs, experiments, sensors.config.ExperimentCacheTime)
+		saveExperiment2Cache(idKey, experiments)
 		// 筛选试验
 		experiment = filterExperiment(requestParam, experiments)
 	}
@@ -120,19 +134,18 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 	if sensors.config.SensorsAnalytics.C == nil {
 		return
 	}
-
 	// 是白名单，则不触发 $ABTestTrigger 事件
 	if experiment.IsWhiteList {
 		return
 	}
-
+	idEvent := getEventKey(distinctId, customIDs, experiment)
 	// 如果在缓存中，则不触发 $ABTestTrigger 事件
-	_, ok := loadEventFromCache(distinctId, customIDs, experiment)
+	ok := isEventExistAndNotExpired(idEvent, sensors.config.EventCacheTime)
 	if ok {
 		return
 	}
 
-	saveEvent2Cache(distinctId, customIDs, experiment, sensors)
+	saveEvent2Cache(idEvent, sensors)
 	if properties == nil {
 		properties = map[string]interface{}{
 			"$abtest_experiment_id":       experiment.AbtestExperimentId,
@@ -149,7 +162,6 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 		isFirstEvent = false
 		lastTimeEvent = currentTime
 	}
-
 	err := sensors.sensorsAnalytics.Track(distinctId, "$ABTestTrigger", properties, isLoginId)
 	if err != nil {
 		fmt.Println("$ABTestTrigger track failed, error : ", err)
@@ -160,55 +172,51 @@ func trackABTestEvent(distinctId string, isLoginId bool, experiment beans.Experi
 // 初始化缓存大小
 func initCache(config beans.ABTestConfig) {
 	if config.EventCacheSize != 0 {
-		eventsCache = lru.New(config.EventCacheSize)
+		eventsTime = lru.New(config.EventCacheSize)
 	}
 
 	if config.ExperimentCacheSize != 0 {
 		experimentCache = lru.New(config.ExperimentCacheSize)
+		experimentTime = lru.New(config.ExperimentCacheSize)
 	}
 }
 
 // 从缓存读取 $ABTestTrigger
-func loadEventFromCache(distinctId string, customIDs map[string]interface{}, experiment beans.Experiment) (interface{}, bool) {
+func isEventExistAndNotExpired(idEvent string, timeout time.Duration) bool {
 	eventsLock.Lock()
 	defer eventsLock.Unlock()
-	idEvent := getEventKey(distinctId, customIDs, experiment)
-	return eventsCache.Get(idEvent)
+	lastTime, ok := eventsTime.Get(idEvent)
+	if ok {
+		return (utils2.NowMs() - lastTime.(int64)) < int64(timeout*time.Minute/time.Millisecond)
+	}
+
+	return false
 }
 
 // 保存 $ABTestTrigger 到缓存中
-func saveEvent2Cache(distinctId string, customIDs map[string]interface{}, experiment beans.Experiment, sensors *SensorsABTest) {
+func saveEvent2Cache(idEvent string, sensors *SensorsABTest) {
 	// 缓存 $ABTestTrigger 事件
 	if sensors.config.EnableEventCache {
 		eventsLock.Lock()
 		defer eventsLock.Unlock()
-		idEvent := getEventKey(distinctId, customIDs, experiment)
-		eventsCache.Add(idEvent, experiment)
-		// 进行清理缓存
-		removeCache(idEvent, func(id string) {
-			eventsCache.Remove(id)
-		}, sensors.config.EventCacheTime)
+		eventsTime.Remove(idEvent)
+		eventsTime.Add(idEvent, utils2.NowMs())
 	}
 }
 
 // 从缓存读取试验
-func loadExperimentCache(distinctId string, isLoginId bool, customIds map[string]interface{}) (interface{}, bool) {
+func loadExperimentCache(idKey string) (interface{}, bool) {
 	experimentLock.Lock()
 	defer experimentLock.Unlock()
-	idKey := getExperimentKey(distinctId, customIds, isLoginId)
 	return experimentCache.Get(idKey)
 }
 
 // 保存试验到缓存
-func saveExperiment2Cache(distinctId string, isLoginId bool, customIds map[string]interface{}, experiments []beans.Experiment, timeout time.Duration) {
+func saveExperiment2Cache(idKey string, experiments []beans.Experiment) {
 	experimentLock.Lock()
 	defer experimentLock.Unlock()
-	idKey := getExperimentKey(distinctId, customIds, isLoginId)
 	experimentCache.Add(idKey, experiments)
-	// 进行清理缓存
-	removeCache(idKey, func(id string) {
-		experimentCache.Remove(id)
-	}, timeout)
+	experimentTime.Add(idKey, utils2.NowMs())
 }
 
 func castValue(defaultValue interface{}, variables beans.Variables) (interface{}, error) {
@@ -252,22 +260,6 @@ func buildRequestParam(distinctId string, isLoginId bool, requestParam beans.Req
 	return params
 }
 
-// 清理缓存
-func removeCache(idExperiment string, removeCache func(id string), timeout time.Duration) {
-	go func() {
-		var d time.Duration
-		if timeout == 0 {
-			d = 24 * time.Hour
-		} else {
-			d = timeout * time.Minute
-		}
-		t := time.NewTicker(d)
-		defer t.Stop()
-		<-t.C
-		removeCache(idExperiment)
-	}()
-}
-
 // 拼接缓存唯一标识
 func getEventKey(distinctId string, customIds map[string]interface{}, experiment beans.Experiment) string {
 	return distinctId + "$" + utils.MapToJson(customIds) + "$" + experiment.AbtestExperimentId
@@ -275,4 +267,12 @@ func getEventKey(distinctId string, customIds map[string]interface{}, experiment
 
 func getExperimentKey(distinctId string, customIds map[string]interface{}, isLoginId bool) string {
 	return distinctId + "$" + utils.MapToJson(customIds) + "$" + strconv.FormatBool(isLoginId)
+}
+
+func isExperimentExpired(idKey string, timeout time.Duration) bool {
+	lastTime, ok := experimentTime.Get(idKey)
+	if ok {
+		return (utils2.NowMs() - lastTime.(int64)) > int64(timeout*time.Minute/time.Millisecond)
+	}
+	return false
 }
