@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SDK_VERSION = "0.0.4"
+	SDK_VERSION = "0.1.0"
 	LIB_NAME    = "Golang"
 )
 
@@ -26,7 +26,7 @@ func InitSensorsABTest(abConfig beans.ABTestConfig) (error, SensorsABTest) {
 }
 
 /*
-	拉取最新试验计划
+拉取最新试验计划
 */
 func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error, beans.Experiment) {
 	err := checkId(distinctId)
@@ -51,7 +51,7 @@ func (sensors *SensorsABTest) AsyncFetchABTest(distinctId string, isLoginId bool
 }
 
 /*
-	优先从缓存获取试验变量，如果缓存没有则从网络拉取
+优先从缓存获取试验变量，如果缓存没有则从网络拉取
 */
 func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool, requestParam beans.RequestParam) (error, beans.Experiment) {
 	err := checkId(distinctId)
@@ -70,6 +70,7 @@ func (sensors *SensorsABTest) FastFetchABTest(distinctId string, isLoginId bool,
 		return err, beans.Experiment{
 			Result: requestParam.DefaultValue,
 		}
+
 	}
 
 	return nil, experiment
@@ -88,7 +89,7 @@ func (sensors *SensorsABTest) TrackABTestTriggerWithCustomId(experiment beans.Ex
 	if err != nil {
 		return err
 	}
-	trackABTestEvent(experiment.DistinctId, experiment.IsLoginId, experiment, sensors, property, customId)
+	trackABTestEventOuter(experiment.DistinctId, experiment.IsLoginId, experiment, sensors, property, customId)
 	return nil
 }
 

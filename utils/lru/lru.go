@@ -143,3 +143,16 @@ func (c *Cache) Clear() {
 	c.ll = nil
 	c.cache = nil
 }
+
+func (c *Cache) Keys() []interface{} {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	keys := make([]interface{}, c.ll.Len())
+	i := 0
+	for _, e := range c.cache {
+		kv := e.Value.(*entry)
+		keys[i] = kv.key
+		i++
+	}
+	return keys
+}
