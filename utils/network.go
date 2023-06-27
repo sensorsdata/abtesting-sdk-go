@@ -18,6 +18,8 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(data))
 
+	req.Header.Add("Content-Type", "application/json")
+
 	client := &http.Client{Timeout: to}
 	resp, err := client.Do(req)
 

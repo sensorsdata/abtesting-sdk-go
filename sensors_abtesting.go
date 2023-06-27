@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SDK_VERSION = "0.1.0"
+	SDK_VERSION = "0.1.1"
 	LIB_NAME    = "Golang"
 )
 

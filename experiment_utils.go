@@ -153,13 +153,18 @@ func loadExperimentCache(idKey string) (interface{}, bool) {
 func saveExperiment2Cache(idKey string, experiments []beans.InnerExperiment) {
 	experimentLock.Lock()
 	defer experimentLock.Unlock()
-	var userExperiments []beans.UserExperiment
-	userCache, ok := userExperimentsCache.Get(idKey)
-	if !ok {
-		userExperiments = make([]beans.UserExperiment, len(experiments))
-	} else {
-		userExperiments = userCache.([]beans.UserExperiment)
+	//需要的缓存数组大小
+	var cacheLen = 0
+	for _, innerExperiment := range experiments {
+		if !innerExperiment.Cacheable && innerExperiment.SubjectId != "" { //新 SaaS 环境
+			continue
+		}
+		cacheLen++
 	}
+	if cacheLen == 0 {
+		return
+	}
+	var userExperiments = make([]beans.UserExperiment, cacheLen)
 	var index = 0
 	for _, innerExperiment := range experiments {
 		if !innerExperiment.Cacheable && innerExperiment.SubjectId != "" { //新 SaaS 环境
