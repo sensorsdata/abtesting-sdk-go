@@ -5,3 +5,5 @@
 # IntelliJ
 *.iml
 .idea/*
+go.mod
+go.sum

@@ -22,7 +22,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 	if requestParam.TimeoutMilliseconds <= 0 {
 		requestParam.TimeoutMilliseconds = 3 * 1000
 	}
-	response, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
+	response, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam, sensors.config.EnableRecordRequestCostTime)
 	if err != nil {
 		return err, beans.Experiment{
 			Result: requestParam.DefaultValue,
@@ -88,7 +88,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 	var outExperiments []beans.InnerExperiment
 	if isRequestNetwork {
 		// 从网络请求试验
-		response, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam)
+		response, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam, sensors.config.EnableRecordRequestCostTime)
 		if err != nil {
 			return err, beans.Experiment{
 				Result: requestParam.DefaultValue,
@@ -134,11 +134,11 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 }
 
 // 从网络加载试验
-func requestExperimentOnNetwork(apiUrl string, distinctId string, isLoginId bool, requestParam beans.RequestParam) (utils.Response, error) {
+func requestExperimentOnNetwork(apiUrl string, distinctId string, isLoginId bool, requestParam beans.RequestParam, enableRecordRequestCostTime bool) (utils.Response, error) {
 	if requestParam.TimeoutMilliseconds <= 0 {
 		requestParam.TimeoutMilliseconds = 3 * 1000
 	}
-	return utils.RequestExperiment(apiUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(requestParam.TimeoutMilliseconds)*time.Millisecond)
+	return utils.RequestExperiment(apiUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(requestParam.TimeoutMilliseconds)*time.Millisecond, enableRecordRequestCostTime)
 }
 
 func trackABTestEventOuter(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}, customIDs map[string]interface{}) {

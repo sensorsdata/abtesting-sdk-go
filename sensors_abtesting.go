@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SDK_VERSION = "0.1.1"
+	SDK_VERSION = "0.1.2"
 	LIB_NAME    = "Golang"
 )
 
@@ -155,6 +155,7 @@ func initConfig(abConfig beans.ABTestConfig) (error, beans.ABTestConfig) {
 
 	config.SensorsAnalytics = abConfig.SensorsAnalytics
 	config.EnableEventCache = abConfig.EnableEventCache
+	config.EnableRecordRequestCostTime = abConfig.EnableRecordRequestCostTime
 	config.APIUrl = abConfig.APIUrl
 	initCache(config)
 	return nil, config

@@ -4,24 +4,33 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
-func RequestExperiment(url string, requestPrams map[string]interface{}, to time.Duration) (Response, error) {
+func RequestExperiment(url string, requestPrams map[string]interface{}, to time.Duration, enableRecordRequestCostTime bool) (Response, error) {
 	var resp *http.Response
 
 	data, _ := json.Marshal(requestPrams)
 
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(data))
 
+	abRequestStartTime := time.Now().UnixNano() / int64(time.Millisecond)
+	req.Header.Add("X-AB-Request-Start-Time", fmt.Sprintf("%v", abRequestStartTime))
 	req.Header.Add("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: to}
 	resp, err := client.Do(req)
+
+	if enableRecordRequestCostTime {
+		abRequestEndTime := time.Now().UnixNano() / int64(time.Millisecond)
+		recordAbRequestCostTime(resp, abRequestStartTime, abRequestEndTime)
+	}
 
 	if err != nil {
 		return Response{}, err
@@ -47,6 +56,36 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 	} else {
 		return Response{}, errors.New(string(response.Error))
 	}
+}
+
+func recordAbRequestCostTime(response *http.Response, abRequestStartTime int64, abRequestEndTime int64) {
+	abRequestId := getAbRequestIdFromResponse(response)
+	abRequestProcessTime := getAbRequestProcessTimeFromResponse(response)
+	abRequestTotalTime := strconv.FormatInt(abRequestEndTime-abRequestStartTime, 10)
+	fmt.Println("record ab request time consumption. requestId: ", abRequestId, ", requestTotalTime:", abRequestTotalTime, "ms, abRequestProcessTime:", abRequestProcessTime, "ms")
+}
+
+func getAbRequestIdFromResponse(response *http.Response) (abRequestId string) {
+	if response != nil && response.Header != nil {
+		abRequestId = response.Header.Get("X-AB-Request-Id")
+		if abRequestId == "" {
+			abRequestId = response.Header.Get("X-Request-Id")
+		}
+		if abRequestId != "" {
+			return abRequestId
+		}
+	}
+	return "unknown (not found)"
+}
+
+func getAbRequestProcessTimeFromResponse(response *http.Response) (abRequestProcessTime string) {
+	if response != nil && response.Header != nil {
+		abRequestProcessTime = response.Header.Get("X-AB-Request-Process-Time")
+		if abRequestProcessTime != "" {
+			return abRequestProcessTime
+		}
+	}
+	return "unknown (not found)"
 }
 
 func defaultTrackConfig(response *Response, resMaps map[string]interface{}) {

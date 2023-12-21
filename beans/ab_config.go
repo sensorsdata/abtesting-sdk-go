@@ -29,6 +29,11 @@ type ABTestConfig struct {
 	*/
 	EnableEventCache bool
 
+	/**
+	开启请求耗时记录
+	*/
+	EnableRecordRequestCostTime bool
+
 	/*
 		API 地址
 	*/
