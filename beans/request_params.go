@@ -1,7 +1,5 @@
 package beans
 
-import "time"
-
 type RequestParam struct {
 	// 试验变量名
 	ParamName string
@@ -16,7 +14,7 @@ type RequestParam struct {
 	CustomIDs map[string]interface{}
 
 	// 网络请求超时时间，单位 ms，默认 3s
-	TimeoutMilliseconds time.Duration
+	TimeoutMilliseconds int
 
 	// 是否自动采集 A/B Testing 埋点事件
 	EnableAutoTrackABEvent bool

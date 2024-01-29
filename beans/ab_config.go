@@ -39,8 +39,22 @@ type ABTestConfig struct {
 	*/
 	APIUrl string
 
+	/*
+		HTTP连接参数
+	*/
+	HTTPTransportParam HTTPTransportParam
+
 	/**
 	用于 SDK 埋点 SensorsAnalytics
 	*/
 	SensorsAnalytics sensorsanalytics.SensorsAnalytics
+}
+
+type HTTPTransportParam struct {
+	MaxIdleConnsPerHost         int
+	MaxIdleConns                int
+	MaxConnsPerHost             int
+	IdleConnTimeoutMilliSeconds int
+	DialTimeoutMilliSeconds     int
+	DialKeepAliveMilliSeconds   int
 }

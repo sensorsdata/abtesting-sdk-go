@@ -7,11 +7,27 @@ import (
 	"fmt"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var httpTransport = &http.Transport{}
+
+func InitTransport(httpTrans beans.HTTPTransportParam) {
+	httpTransport = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   time.Duration(httpTrans.DialTimeoutMilliSeconds) * time.Millisecond,
+			KeepAlive: time.Duration(httpTrans.DialKeepAliveMilliSeconds) * time.Millisecond,
+		}).DialContext,
+		MaxIdleConns:        httpTrans.MaxIdleConns,
+		MaxIdleConnsPerHost: httpTrans.MaxIdleConnsPerHost,
+		MaxConnsPerHost:     httpTrans.MaxConnsPerHost,
+		IdleConnTimeout:     time.Duration(httpTrans.IdleConnTimeoutMilliSeconds) * time.Millisecond,
+	}
+}
 
 func RequestExperiment(url string, requestPrams map[string]interface{}, to time.Duration, enableRecordRequestCostTime bool) (Response, error) {
 	var resp *http.Response
@@ -24,7 +40,7 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 	req.Header.Add("X-AB-Request-Start-Time", fmt.Sprintf("%v", abRequestStartTime))
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: to}
+	client := &http.Client{Timeout: to, Transport: httpTransport}
 	resp, err := client.Do(req)
 
 	if enableRecordRequestCostTime {

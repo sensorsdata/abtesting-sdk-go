@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SDK_VERSION = "0.1.2"
+	SDK_VERSION = "0.1.3"
 	LIB_NAME    = "Golang"
 )
 
@@ -158,5 +158,45 @@ func initConfig(abConfig beans.ABTestConfig) (error, beans.ABTestConfig) {
 	config.EnableRecordRequestCostTime = abConfig.EnableRecordRequestCostTime
 	config.APIUrl = abConfig.APIUrl
 	initCache(config)
+	utils.InitTransport(getHTTPTransPortParam(abConfig))
 	return nil, config
+}
+
+func getHTTPTransPortParam(abConfig beans.ABTestConfig) beans.HTTPTransportParam {
+	param := beans.HTTPTransportParam{}
+	if abConfig.HTTPTransportParam.MaxIdleConnsPerHost <= 0 {
+		param.MaxIdleConnsPerHost = 5
+	} else {
+		param.MaxIdleConnsPerHost = abConfig.HTTPTransportParam.MaxIdleConnsPerHost
+	}
+	if abConfig.HTTPTransportParam.MaxIdleConns <= 0 {
+		param.MaxIdleConns = 20
+	} else {
+		param.MaxIdleConns = abConfig.HTTPTransportParam.MaxIdleConns
+	}
+
+	if abConfig.HTTPTransportParam.MaxConnsPerHost <= 0 {
+		param.MaxConnsPerHost = 200
+	} else {
+		param.MaxConnsPerHost = abConfig.HTTPTransportParam.MaxConnsPerHost
+	}
+
+	if abConfig.HTTPTransportParam.IdleConnTimeoutMilliSeconds <= 0 {
+		param.IdleConnTimeoutMilliSeconds = 30 * 1000
+	} else {
+		param.IdleConnTimeoutMilliSeconds = abConfig.HTTPTransportParam.IdleConnTimeoutMilliSeconds
+	}
+
+	if abConfig.HTTPTransportParam.DialTimeoutMilliSeconds <= 0 {
+		param.DialTimeoutMilliSeconds = 30 * 1000
+	} else {
+		param.DialTimeoutMilliSeconds = abConfig.HTTPTransportParam.DialTimeoutMilliSeconds
+	}
+
+	if abConfig.HTTPTransportParam.DialKeepAliveMilliSeconds <= 0 {
+		param.DialKeepAliveMilliSeconds = 30 * 1000
+	} else {
+		param.DialKeepAliveMilliSeconds = abConfig.HTTPTransportParam.DialKeepAliveMilliSeconds
+	}
+	return param
 }
