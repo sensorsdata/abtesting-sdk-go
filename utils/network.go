@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -43,22 +44,60 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 	client := &http.Client{Timeout: to, Transport: httpTransport}
 	resp, err := client.Do(req)
 
-	if enableRecordRequestCostTime {
-		abRequestEndTime := time.Now().UnixNano() / int64(time.Millisecond)
-		recordAbRequestCostTime(resp, abRequestStartTime, abRequestEndTime)
-	}
-
 	if err != nil {
 		return Response{}, err
 	}
 
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	if resp == nil {
+		return Response{}, fmt.Errorf("response is nil")
+	}
+
+	if enableRecordRequestCostTime {
+		recordRequestCostTime(resp, abRequestStartTime)
+	}
+
+	return processResponse(resp)
+}
+
+func truncateBody(arr []byte, maxLen int) string {
+	bodyStr := string(arr)
+	if len(bodyStr) > maxLen {
+		return bodyStr[:maxLen]
+	}
+	return bodyStr
+}
+
+func processResponse(resp *http.Response) (Response, error) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println("close body error: ", err)
+		}
+	}(resp.Body)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return Response{}, err
+	}
+
+	if !isStatusCodeValid(resp.StatusCode) {
+		return Response{}, fmt.Errorf("response status code is not valid, status code: %d, response: %s", resp.StatusCode, truncateBody(body, 200))
+	}
+
 	response := Response{}
 	var resMaps map[string]interface{}
+
 	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return Response{}, err
+	}
+
 	err = json.Unmarshal(body, &resMaps)
-	if err == nil && response.Status == "SUCCESS" {
+	if err != nil {
+		return Response{}, err
+	}
+
+	if response.Status == "SUCCESS" {
 		if !strings.Contains(string(body), "track_config") {
 			response.TrackConfig = beans.TrackConfig{
 				ItemSwitch:        false,
@@ -70,8 +109,17 @@ func RequestExperiment(url string, requestPrams map[string]interface{}, to time.
 		defaultTrackConfig(&response, resMaps)
 		return response, nil
 	} else {
-		return Response{}, errors.New(string(response.Error))
+		return Response{}, errors.New(response.Error)
 	}
+}
+
+func recordRequestCostTime(resp *http.Response, abRequestStartTime int64) {
+	abRequestEndTime := time.Now().UnixNano() / int64(time.Millisecond)
+	recordAbRequestCostTime(resp, abRequestStartTime, abRequestEndTime)
+}
+
+func isStatusCodeValid(statusCode int) bool {
+	return statusCode >= 200 && statusCode <= 299
 }
 
 func recordAbRequestCostTime(response *http.Response, abRequestStartTime int64, abRequestEndTime int64) {
