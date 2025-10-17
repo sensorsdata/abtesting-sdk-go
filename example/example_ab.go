@@ -35,7 +35,7 @@ func main() {
 	defer sa.Close()
 	// 进行初始化配置
 	abconfig := beans.ABTestConfig{
-		APIUrl:           "http://10.1.132.126:8203/api/v2/abtest/online/results?project-key=1D15DCE3983D4E4EC5D35D04B7FFD7671AC5E8EF",
+		APIUrl:           "",
 		EnableEventCache: true,
 		SensorsAnalytics: sa,
 	}
