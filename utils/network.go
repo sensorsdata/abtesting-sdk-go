@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"io"
 	"io/ioutil"
 	"net"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sensorsdata/abtesting-sdk-go/beans"
 )
 
 var httpTransport = &http.Transport{}
@@ -30,30 +31,44 @@ func InitTransport(httpTrans beans.HTTPTransportParam) {
 	}
 }
 
-func RequestExperiment(url string, requestPrams map[string]interface{}, to time.Duration, enableRecordRequestCostTime bool) (Response, error) {
-	var resp *http.Response
+// 通用的HTTP请求执行函数，避免重复代码
+func executeHttpRequest(url string, requestParams map[string]interface{}, timeout time.Duration, enableRecordRequestCostTime bool) (*http.Response, error) {
+	data, err := json.Marshal(requestParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request params: %w", err)
+	}
 
-	data, _ := json.Marshal(requestPrams)
-
-	req, _ := http.NewRequest("POST", url, bytes.NewReader(data))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
 
 	abRequestStartTime := time.Now().UnixNano() / int64(time.Millisecond)
 	req.Header.Add("X-AB-Request-Start-Time", fmt.Sprintf("%v", abRequestStartTime))
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: to, Transport: httpTransport}
+	client := &http.Client{Timeout: timeout, Transport: httpTransport}
 	resp, err := client.Do(req)
-
 	if err != nil {
-		return Response{}, err
+		return nil, err
 	}
 
 	if resp == nil {
-		return Response{}, fmt.Errorf("response is nil")
+		return nil, fmt.Errorf("response is nil")
 	}
 
 	if enableRecordRequestCostTime {
 		recordRequestCostTime(resp, abRequestStartTime)
+	}
+
+	return resp, nil
+}
+
+// 统一的实验请求函数，返回解析后的实验响应和原始响应体字符串
+func RequestExperiment(url string, requestParams map[string]interface{}, timeout time.Duration, enableRecordRequestCostTime bool) (Response, string, error) {
+	resp, err := executeHttpRequest(url, requestParams, timeout, enableRecordRequestCostTime)
+	if err != nil {
+		return Response{}, "", err
 	}
 
 	return processResponse(resp)
@@ -67,7 +82,8 @@ func truncateBody(arr []byte, maxLen int) string {
 	return bodyStr
 }
 
-func processResponse(resp *http.Response) (Response, error) {
+// 通用的响应处理函数，读取并验证HTTP响应
+func processHttpResponse(resp *http.Response) (string, error) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -77,40 +93,28 @@ func processResponse(resp *http.Response) (Response, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return Response{}, err
+		return "", err
 	}
+
+	bodyStr := string(body)
 
 	if !isStatusCodeValid(resp.StatusCode) {
-		return Response{}, fmt.Errorf("response status code is not valid, status code: %d, response: %s", resp.StatusCode, truncateBody(body, 200))
+		return bodyStr, fmt.Errorf("response status code is not valid, status code: %d, response: %s", resp.StatusCode, truncateBody(body, 200))
 	}
 
-	response := Response{}
-	var resMaps map[string]interface{}
+	return bodyStr, nil
+}
 
-	err = json.Unmarshal(body, &response)
+// 返回解析后的实验响应和原始响应体字符串的处理函数
+func processResponse(resp *http.Response) (Response, string, error) {
+	rawBodyStr, err := processHttpResponse(resp)
 	if err != nil {
-		return Response{}, err
+		return Response{}, rawBodyStr, err
 	}
 
-	err = json.Unmarshal(body, &resMaps)
-	if err != nil {
-		return Response{}, err
-	}
-
-	if response.Status == "SUCCESS" {
-		if !strings.Contains(string(body), "track_config") {
-			response.TrackConfig = beans.TrackConfig{
-				ItemSwitch:        false,
-				TriggerSwitch:     true,
-				PropertySetSwitch: false,
-				TriggerContentExt: []string{"abtest_experiment_result_id", "abtest_experiment_version"},
-			}
-		}
-		defaultTrackConfig(&response, resMaps)
-		return response, nil
-	} else {
-		return Response{}, errors.New(response.Error)
-	}
+	// 解析实验响应
+	experimentResponse, err := ParseResponse(rawBodyStr)
+	return experimentResponse, rawBodyStr, err
 }
 
 func recordRequestCostTime(resp *http.Response, abRequestStartTime int64) {
@@ -207,4 +211,37 @@ type Response struct {
 	Results     []beans.InnerExperiment `json:"results"`
 	TrackConfig beans.TrackConfig       `json:"track_config"`
 	OutList     []beans.InnerExperiment `json:"out_list"`
+}
+
+// 从原始响应体字符串解析实验响应
+func ParseResponse(rawBodyStr string) (Response, error) {
+	experimentResponse := Response{}
+	var responseMaps map[string]interface{}
+
+	bodyBytes := []byte(rawBodyStr)
+
+	err := json.Unmarshal(bodyBytes, &experimentResponse)
+	if err != nil {
+		return Response{}, err
+	}
+
+	err = json.Unmarshal(bodyBytes, &responseMaps)
+	if err != nil {
+		return Response{}, err
+	}
+
+	if experimentResponse.Status == "SUCCESS" {
+		if !strings.Contains(rawBodyStr, "track_config") {
+			experimentResponse.TrackConfig = beans.TrackConfig{
+				ItemSwitch:        false,
+				TriggerSwitch:     true,
+				PropertySetSwitch: false,
+				TriggerContentExt: []string{"abtest_experiment_result_id", "abtest_experiment_version"},
+			}
+		}
+		defaultTrackConfig(&experimentResponse, responseMaps)
+		return experimentResponse, nil
+	} else {
+		return Response{}, errors.New(experimentResponse.Error)
+	}
 }

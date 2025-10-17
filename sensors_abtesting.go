@@ -1,16 +1,30 @@
 package sensorsabtest
 
 import (
+	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/sensorsdata/abtesting-sdk-go/beans"
 	"github.com/sensorsdata/abtesting-sdk-go/utils"
-	"github.com/sensorsdata/sa-sdk-go"
+	sensorsanalytics "github.com/sensorsdata/sa-sdk-go"
 )
 
 const (
-	SDK_VERSION = "0.1.4"
+	SDK_VERSION = "0.2.0"
 	LIB_NAME    = "Golang"
 )
+
+// BuildAllExperimentsResultParams 构建所有实验结果的参数
+type BuildAllExperimentsResultParams struct {
+	ExperimentResponse     utils.Response    // 解析后的实验响应
+	RawResponseBody        string            // 原始响应体字符串
+	DistinctId             string            // 用户标识
+	IsLoginId              bool              // 是否为登录ID
+	CustomIDs              map[string]string // 自定义ID映射
+	EnableAutoTrackABEvent bool              // 是否启用自动埋点
+	Timestamp              int64             // 请求时间戳
+}
 
 type SensorsABTest struct {
 	config           beans.ABTestConfig
@@ -84,7 +98,7 @@ func (sensors *SensorsABTest) TrackABTestTrigger(experiment beans.Experiment, pr
 	return sensors.TrackABTestTriggerWithCustomId(experiment, nil, property)
 }
 
-func (sensors *SensorsABTest) TrackABTestTriggerWithCustomId(experiment beans.Experiment, customId map[string]interface{}, property map[string]interface{}) error {
+func (sensors *SensorsABTest) TrackABTestTriggerWithCustomId(experiment beans.Experiment, customId map[string]string, property map[string]interface{}) error {
 	err := checkId(experiment.DistinctId)
 	if err != nil {
 		return err
@@ -105,12 +119,12 @@ func checkRequestParams(param beans.RequestParam) error {
 
 	var err error
 	// 检查自定义属性
-	if param.Properties != nil && len(param.Properties) > 0 {
+	if len(param.Properties) > 0 {
 		err = utils.CheckProperty(param.Properties)
 	}
 
 	// 检查自定义主体
-	if param.CustomIDs != nil && len(param.CustomIDs) > 0 {
+	if len(param.CustomIDs) > 0 {
 		err = utils.CheckCustomIds(param.CustomIDs)
 	}
 	return err
@@ -199,4 +213,198 @@ func getHTTPTransPortParam(abConfig beans.ABTestConfig) beans.HTTPTransportParam
 		param.DialKeepAliveMilliSeconds = abConfig.HTTPTransportParam.DialKeepAliveMilliSeconds
 	}
 	return param
+}
+
+/*
+获取用户在所有试验下的分流结果
+强制从网络获取最新数据，不使用缓存
+*/
+func (sensors *SensorsABTest) FetchAllExperiments(distinctId string, isLoginId bool, requestParam beans.FetchAllRequestParam) (error, beans.AllExperimentsResult) {
+	// 参数校验
+	err := checkId(distinctId)
+	if err != nil {
+		return err, beans.AllExperimentsResult{}
+	}
+
+	// 检查自定义属性
+	if len(requestParam.Properties) > 0 {
+		err = utils.CheckProperty(requestParam.Properties)
+		if err != nil {
+			return err, beans.AllExperimentsResult{}
+		}
+	}
+
+	// 检查自定义主体
+	if len(requestParam.CustomIDs) > 0 {
+		err = utils.CheckCustomIds(requestParam.CustomIDs)
+		if err != nil {
+			return err, beans.AllExperimentsResult{}
+		}
+	}
+
+	// 从网络获取所有试验
+	params := buildGetAllRequestParam(distinctId, isLoginId, requestParam)
+	experimentResponse, rawResponseBody, err := requestExperimentFromNetwork(sensors, params, int64(requestParam.TimeoutMilliseconds))
+	if err != nil {
+		return err, beans.NewAllExperimentsResultBuilder().
+			DistinctId(distinctId).
+			IsLoginId(isLoginId).
+			CustomIDs(requestParam.CustomIDs).
+			Experiments(make(map[string]beans.InnerExperiment)).
+			Timestamp(time.Now().UnixMilli()).Build()
+	}
+
+	// 使用通用辅助函数构建结果
+	buildParams := BuildAllExperimentsResultParams{
+		ExperimentResponse:     experimentResponse,
+		RawResponseBody:        rawResponseBody,
+		DistinctId:             distinctId,
+		IsLoginId:              isLoginId,
+		CustomIDs:              requestParam.CustomIDs,
+		EnableAutoTrackABEvent: requestParam.EnableAutoTrackABEvent,
+	}
+	result := sensors.buildAllExperimentsResult(buildParams)
+
+	return nil, result
+}
+
+// 通用的构建 AllExperimentsResult 的辅助函数
+func (sensors *SensorsABTest) buildAllExperimentsResult(params BuildAllExperimentsResultParams) beans.AllExperimentsResult {
+	// 构建参数名到试验的映射
+	experimentsMap := make(map[string]beans.InnerExperiment)
+
+	// 处理 results（主要试验结果）
+	for _, experiment := range params.ExperimentResponse.Results {
+		// 为每个试验变量创建映射
+		for _, variable := range experiment.VariableList {
+			// 类型转换处理
+			value, err := castValueFromString(variable.Value, variable)
+			if err == nil {
+				//如果不存在或者是白名单的情况，则加入映射
+				if _, ok := experimentsMap[variable.Name]; !ok || experiment.IsWhiteList {
+					// 创建一个新的试验对象，设置正确的结果值
+					experimentCopy := experiment
+					experimentCopy.Result = value
+					experimentsMap[variable.Name] = experimentCopy
+				}
+			}
+		}
+	}
+
+	// 创建 out_list 参数映射（用于埋点，但不返回结果值）
+	outListMap := make(map[string][]beans.InnerExperiment)
+	for _, experiment := range params.ExperimentResponse.OutList {
+		for _, variable := range experiment.VariableList {
+			outListMap[variable.Name] = append(outListMap[variable.Name], experiment)
+		}
+	}
+
+	// 创建埋点回调函数（如果启用）
+	var trackCallback func(string, beans.InnerExperiment)
+	if params.EnableAutoTrackABEvent {
+		// 闭包捕获当前上下文
+		capturedDistinctId := params.DistinctId
+		capturedIsLoginId := params.IsLoginId
+		capturedCustomIDs := params.CustomIDs
+		capturedTrackConfig := params.ExperimentResponse.TrackConfig
+		capturedSensors := sensors
+		capturedOutListMap := outListMap
+
+		trackCallback = func(paramName string, experiment beans.InnerExperiment) {
+			// 先为主要试验（results）埋点
+			// 不为 0 值
+			if experiment.AbtestExperimentId != "" {
+				trackABTestEvent(capturedDistinctId, capturedIsLoginId, experiment, capturedSensors, nil, capturedCustomIDs, capturedTrackConfig)
+			}
+			// 检查 out_list 中是否也有相同参数的试验，如果有也要埋点
+			if outExperiments, exists := capturedOutListMap[paramName]; exists {
+				for _, outExperiment := range outExperiments {
+					trackABTestEvent(capturedDistinctId, capturedIsLoginId, outExperiment, capturedSensors, nil, capturedCustomIDs, capturedTrackConfig)
+				}
+			}
+		}
+	}
+
+	timestamp := params.Timestamp
+	if timestamp == 0 {
+		timestamp = time.Now().UnixMilli()
+	}
+
+	// 使用 Builder 创建结果对象
+	return beans.NewAllExperimentsResultBuilder().
+		DistinctId(params.DistinctId).
+		IsLoginId(params.IsLoginId).
+		CustomIDs(params.CustomIDs).
+		TrackCallback(trackCallback).
+		Experiments(experimentsMap).
+		ResponseBody(params.RawResponseBody).
+		Timestamp(timestamp).
+		Build()
+}
+
+/*
+从原始响应体字符串加载 AllExperimentsResult
+支持跨服务传递分流结果，避免重复请求
+rawResponseBody: 原始网络响应的 body 字符串
+customIds: 自定义主体 ID
+*/
+func (sensors *SensorsABTest) loadAllExperimentsFromResponseBody(data beans.DumpData, enableAutoTrackABEvent bool) (error, beans.AllExperimentsResult) {
+	// 解析原始响应体
+	experimentResponse, err := utils.ParseResponse(data.ResponseBody)
+	if err != nil {
+		return err, beans.AllExperimentsResult{}
+	}
+
+	// 参数校验
+	err = checkId(data.DistinctId)
+	if err != nil {
+		return err, beans.AllExperimentsResult{}
+	}
+
+	// 使用通用辅助函数构建结果
+	buildParams := BuildAllExperimentsResultParams{
+		ExperimentResponse:     experimentResponse,
+		RawResponseBody:        data.ResponseBody,
+		DistinctId:             data.DistinctId,
+		IsLoginId:              data.IsLoginId,
+		CustomIDs:              data.CustomIDs,
+		EnableAutoTrackABEvent: enableAutoTrackABEvent,
+		Timestamp:              data.Timestamp,
+	}
+	result := sensors.buildAllExperimentsResult(buildParams)
+
+	return nil, result
+}
+
+/*
+从序列化的 JSON 字符串加载 AllExperimentsResult
+*/
+func (sensors *SensorsABTest) LoadAllExperiments(distinctId string, isLoginId bool, param beans.LoadDumpedParam, dumpData string) (error, beans.AllExperimentsResult) {
+	// 解析序列化数据
+	var data beans.DumpData
+	err := json.Unmarshal([]byte(dumpData), &data)
+	if err != nil {
+		return err, beans.AllExperimentsResult{}
+	}
+
+	// 验证必要字段
+	if data.ResponseBody == "" {
+		return errors.New("invalid serialized data: missing response_body field"), beans.AllExperimentsResult{}
+	}
+	if data.DistinctId == "" {
+		return errors.New("invalid serialized data: missing distinct_id field"), beans.AllExperimentsResult{}
+	}
+
+	// 校验传入的用户信息和序列化数据中的用户信息是否一致
+	if data.DistinctId != distinctId || data.IsLoginId != isLoginId {
+		return errors.New("user identity (distinctId, isLoginId) mismatch"), beans.AllExperimentsResult{}
+	}
+
+	// 校验 CustomIDs 是否一致
+	if !utils.CompareMaps(data.CustomIDs, param.CustomIDs) {
+		return errors.New("user identity (CustomIDs) mismatch"), beans.AllExperimentsResult{}
+	}
+
+	// 调用原有的方法，传入解析出的参数（包括 CustomIDs）
+	return sensors.loadAllExperimentsFromResponseBody(data, param.EnableAutoTrackABEvent)
 }

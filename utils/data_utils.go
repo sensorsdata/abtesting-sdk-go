@@ -47,7 +47,7 @@ func CheckProperty(properties map[string]interface{}) error {
 	return nil
 }
 
-func CheckCustomIds(customIds map[string]interface{}) error {
+func CheckCustomIds(customIds map[string]string) error {
 	//check properties
 	if customIds != nil {
 		for k, v := range customIds {
@@ -60,17 +60,10 @@ func CheckCustomIds(customIds map[string]interface{}) error {
 				return err
 			}
 			//check value
-			str, ok := v.(string)
-			if ok {
-				if str == "" {
-					return errors.New("ID 属性值为空的不合法属性，key = " + k)
-				} else if len(str) > 1024 {
-					return errors.New("ID 属性值长度超过 1024 的不合法属性，key = " + k)
-				}
-			}
-			err = isValueValid(customIds, k, v)
-			if err != nil {
-				return err
+			if v == "" {
+				return errors.New("ID 属性值为空的不合法属性，key = " + k)
+			} else if len(v) > 1024 {
+				return errors.New("ID 属性值长度超过 1024 的不合法属性，key = " + k)
 			}
 		}
 	}
@@ -100,24 +93,24 @@ func isKeyValid(key string, value interface{}) error {
 
 // 检查 value 是否合法
 func isValueValid(properties map[string]interface{}, key string, value interface{}) error {
-	switch value.(type) {
+	switch v := value.(type) {
 	case int:
 	case bool:
 	case float64:
 	case string:
-		if len(value.(string)) > VALUE_MAX {
-			return errors.New("the max length of property value is 8192," + "value = " + value.(string))
+		if len(v) > VALUE_MAX {
+			return errors.New("the max length of property value is 8192," + "value = " + v)
 		}
 	case []string: //value in properties list MUST be string
 	case time.Time: //only support time.Time
-		properties[key] = value.(time.Time).Format("2006-01-02 15:04:05.999")
+		properties[key] = v.Format("2006-01-02 15:04:05.999")
 	default:
 		return errors.New("property value must be a string/int/float64/bool/time.Time/[]string," + "key = " + key)
 	}
 	return nil
 }
 
-func MapToJson(param map[string]interface{}) string {
+func MapToJson(param map[string]string) string {
 	dataType, _ := json.Marshal(param)
 	dataString := string(dataType)
 	return dataString
@@ -144,5 +137,20 @@ func MapEquals(x, y map[string]int) bool {
 			return false
 		}
 	}
+	return true
+}
+
+func CompareMaps(mapA, mapB map[string]string) bool {
+	if len(mapA) != len(mapB) {
+		return false
+	}
+
+	for key, valueA := range mapA {
+		valueB, ok := mapB[key]
+		if !ok || valueA != valueB {
+			return false
+		}
+	}
+
 	return true
 }

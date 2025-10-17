@@ -2,14 +2,15 @@ package sensorsabtest
 
 import (
 	"errors"
-	"github.com/sensorsdata/abtesting-sdk-go/beans"
-	"github.com/sensorsdata/abtesting-sdk-go/utils"
-	"github.com/sensorsdata/abtesting-sdk-go/utils/lru"
-	utils2 "github.com/sensorsdata/sa-sdk-go/utils"
 	"reflect"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/sensorsdata/abtesting-sdk-go/beans"
+	"github.com/sensorsdata/abtesting-sdk-go/utils"
+	"github.com/sensorsdata/abtesting-sdk-go/utils/lru"
+	utils2 "github.com/sensorsdata/sa-sdk-go/utils"
 )
 
 // 用户的试验缓存
@@ -100,19 +101,19 @@ func saveEvent2Cache(idEvent string, innerExperiment beans.InnerExperiment, sens
 
 func castValue(defaultValue interface{}, variables beans.Variables) (interface{}, error) {
 	var defaultType = reflect.TypeOf(defaultValue)
-	if (variables.Type == "STRING" || variables.Type == "JSON") && "string" == defaultType.String() {
+	if (variables.Type == "STRING" || variables.Type == "JSON") && defaultType.String() == "string" {
 		return variables.Value, nil
-	} else if variables.Type == "INTEGER" && "int" == defaultType.String() {
+	} else if variables.Type == "INTEGER" && defaultType.String() == "int" {
 		return strconv.Atoi(variables.Value)
-	} else if variables.Type == "INTEGER" && "int8" == defaultType.String() {
+	} else if variables.Type == "INTEGER" && defaultType.String() == "int8" {
 		return strconv.ParseInt(variables.Value, 10, 8)
-	} else if variables.Type == "INTEGER" && "int16" == defaultType.String() {
+	} else if variables.Type == "INTEGER" && defaultType.String() == "int16" {
 		return strconv.ParseInt(variables.Value, 10, 16)
-	} else if variables.Type == "INTEGER" && "int32" == defaultType.String() {
+	} else if variables.Type == "INTEGER" && defaultType.String() == "int32" {
 		return strconv.ParseInt(variables.Value, 10, 32)
-	} else if variables.Type == "INTEGER" && "int64" == defaultType.String() {
+	} else if variables.Type == "INTEGER" && defaultType.String() == "int64" {
 		return strconv.ParseInt(variables.Value, 10, 64)
-	} else if variables.Type == "BOOLEAN" && "bool" == defaultType.String() {
+	} else if variables.Type == "BOOLEAN" && defaultType.String() == "bool" {
 		return strconv.ParseBool(variables.Value)
 	}
 	return defaultValue, errors.New("castValue No Type Found")
@@ -202,10 +203,10 @@ func buildRequestParam(distinctId string, isLoginId bool, requestParam beans.Req
 
 	params["abtest_lib_version"] = SDK_VERSION
 	params["platform"] = LIB_NAME
-	if requestParam.Properties != nil && len(requestParam.Properties) > 0 {
+	if len(requestParam.Properties) > 0 {
 		params["custom_properties"] = requestParam.Properties
 	}
-	if requestParam.CustomIDs != nil && len(requestParam.CustomIDs) > 0 {
+	if len(requestParam.CustomIDs) > 0 {
 		params["custom_ids"] = requestParam.CustomIDs
 	}
 
@@ -213,7 +214,7 @@ func buildRequestParam(distinctId string, isLoginId bool, requestParam beans.Req
 }
 
 // 拼接缓存唯一标识
-func getEventKey(distinctId string, customIds map[string]interface{}, innerExperiment beans.InnerExperiment) string {
+func getEventKey(distinctId string, customIds map[string]string, innerExperiment beans.InnerExperiment) string {
 	if innerExperiment.SubjectId != "" {
 		return innerExperiment.SubjectId + "$" + innerExperiment.SubjectName + "$" + innerExperiment.AbtestExperimentId
 	} else {
@@ -221,7 +222,7 @@ func getEventKey(distinctId string, customIds map[string]interface{}, innerExper
 	}
 }
 
-func getExperimentUserKey(distinctId string, customIds map[string]interface{}, isLoginId bool) string {
+func getExperimentUserKey(distinctId string, customIds map[string]string, isLoginId bool) string {
 	return distinctId + "$" + utils.MapToJson(customIds) + "$" + strconv.FormatBool(isLoginId)
 }
 
@@ -239,4 +240,43 @@ func isExperimentExpired(idKey string, timeout time.Duration) bool {
 		return (utils2.NowMs() - lastTime.(int64)) > int64(timeout*time.Minute/time.Millisecond)
 	}
 	return true
+}
+
+// 为 GetAll 接口构建网络请求参数
+func buildGetAllRequestParam(distinctId string, isLoginId bool, requestParam beans.FetchAllRequestParam) map[string]interface{} {
+	var params = make(map[string]interface{})
+	if isLoginId {
+		params["login_id"] = distinctId
+	} else {
+		params["anonymous_id"] = distinctId
+	}
+
+	params["abtest_lib_version"] = SDK_VERSION
+	params["platform"] = LIB_NAME
+
+	// 添加获取所有试验的标识（如果服务端支持的话）
+	// params["get_all"] = true
+
+	if len(requestParam.Properties) > 0 {
+		params["custom_properties"] = requestParam.Properties
+	}
+	if len(requestParam.CustomIDs) > 0 {
+		params["custom_ids"] = requestParam.CustomIDs
+	}
+
+	return params
+}
+
+// 类型转换辅助函数（从字符串转换到具体类型）
+func castValueFromString(value string, variable beans.Variables) (interface{}, error) {
+	switch variable.Type {
+	case "STRING", "JSON":
+		return value, nil
+	case "INTEGER":
+		return strconv.Atoi(value)
+	case "BOOLEAN":
+		return strconv.ParseBool(value)
+	default:
+		return value, nil
+	}
 }

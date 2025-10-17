@@ -1,9 +1,21 @@
 # --------
 # Golang
-# Date: 2019-05-23
 # --------
 # IntelliJ
 *.iml
 .idea/*
+/.vscode/
 go.mod
 go.sum
+.DS_Store
+
+
+# --------
+# CLAUDE
+# --------
+CLAUDE.md
+
+# --------
+# GEMINI
+# --------
+GEMINI.md

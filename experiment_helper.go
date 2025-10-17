@@ -22,7 +22,8 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 	if requestParam.TimeoutMilliseconds <= 0 {
 		requestParam.TimeoutMilliseconds = 3 * 1000
 	}
-	response, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam, sensors.config.EnableRecordRequestCostTime)
+	params := buildRequestParam(distinctId, isLoginId, requestParam)
+	response, _, err := requestExperimentFromNetwork(sensors, params, int64(requestParam.TimeoutMilliseconds))
 	if err != nil {
 		return err, beans.Experiment{
 			Result: requestParam.DefaultValue,
@@ -40,6 +41,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 		tempExperiment := beans.Experiment{
 			DistinctId:         distinctId,
 			IsLoginId:          isLoginId,
+			CustomIDs:          requestParam.CustomIDs,
 			Result:             innerExperiment.Result,
 			InternalExperiment: innerExperiment,
 		}
@@ -63,6 +65,7 @@ func loadExperimentFromNetwork(sensors *SensorsABTest, distinctId string, isLogi
 	return nil, beans.Experiment{
 		DistinctId: distinctId,
 		IsLoginId:  isLoginId,
+		CustomIDs:  requestParam.CustomIDs,
 		Result:     requestParam.DefaultValue,
 	}
 }
@@ -88,7 +91,8 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 	var outExperiments []beans.InnerExperiment
 	if isRequestNetwork {
 		// 从网络请求试验
-		response, err := requestExperimentOnNetwork(sensors.config.APIUrl, distinctId, isLoginId, requestParam, sensors.config.EnableRecordRequestCostTime)
+		params := buildRequestParam(distinctId, isLoginId, requestParam)
+		response, _, err := requestExperimentFromNetwork(sensors, params, int64(requestParam.TimeoutMilliseconds))
 		if err != nil {
 			return err, beans.Experiment{
 				Result: requestParam.DefaultValue,
@@ -107,6 +111,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 	experiment := beans.Experiment{
 		DistinctId: distinctId,
 		IsLoginId:  isLoginId,
+		CustomIDs:  requestParam.CustomIDs,
 		Result:     requestParam.DefaultValue,
 	}
 	if innerExperiment.AbtestExperimentId != "" {
@@ -117,6 +122,7 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 		tempExperiment := beans.Experiment{
 			DistinctId:         distinctId,
 			IsLoginId:          isLoginId,
+			CustomIDs:          requestParam.CustomIDs,
 			Result:             innerExperiment.Result,
 			InternalExperiment: innerExperiment,
 		}
@@ -133,20 +139,12 @@ func loadExperimentFromCache(sensors *SensorsABTest, distinctId string, isLoginI
 	return nil, experiment
 }
 
-// 从网络加载试验
-func requestExperimentOnNetwork(apiUrl string, distinctId string, isLoginId bool, requestParam beans.RequestParam, enableRecordRequestCostTime bool) (utils.Response, error) {
-	if requestParam.TimeoutMilliseconds <= 0 {
-		requestParam.TimeoutMilliseconds = 3 * 1000
-	}
-	return utils.RequestExperiment(apiUrl, buildRequestParam(distinctId, isLoginId, requestParam), time.Duration(requestParam.TimeoutMilliseconds)*time.Millisecond, enableRecordRequestCostTime)
-}
-
-func trackABTestEventOuter(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}, customIDs map[string]interface{}) {
+func trackABTestEventOuter(distinctId string, isLoginId bool, experiment beans.Experiment, sensors *SensorsABTest, properties map[string]interface{}, customIDs map[string]string) {
 	trackABTestEvent(distinctId, isLoginId, experiment.InternalExperiment, sensors, properties, customIDs, trackConfig)
 }
 
-func trackABTestEvent(distinctId string, isLoginId bool, innerExperiment beans.InnerExperiment, sensors *SensorsABTest, properties map[string]interface{}, customIDs map[string]interface{}, config beans.TrackConfig) {
-	if sensors.config.SensorsAnalytics.C == nil {
+func trackABTestEvent(distinctId string, isLoginId bool, innerExperiment beans.InnerExperiment, sensors *SensorsABTest, properties map[string]interface{}, customIDs map[string]string, config beans.TrackConfig) {
+	if sensors == nil || sensors.config.SensorsAnalytics.C == nil {
 		return
 	}
 	// 是白名单，则不触发 $ABTestTrigger 事件
@@ -204,7 +202,6 @@ func trackABTestEvent(distinctId string, isLoginId bool, innerExperiment beans.I
 	if err != nil {
 		fmt.Println("$ABTestTrigger track failed, error : ", err)
 	}
-	sensors.sensorsAnalytics.Flush()
 }
 
 // 初始化缓存大小
@@ -219,4 +216,13 @@ func initCache(config beans.ABTestConfig) {
 		userExperimentTime = lru.New(config.ExperimentCacheSize)
 		userExperimentsCache = lru.New(config.ExperimentCacheSize)
 	}
+}
+
+// 统一的网络请求函数
+func requestExperimentFromNetwork(sensors *SensorsABTest, requestParams map[string]interface{}, timeoutMs int64) (utils.Response, string, error) {
+	if timeoutMs <= 0 {
+		timeoutMs = 3 * 1000
+	}
+
+	return utils.RequestExperiment(sensors.config.APIUrl, requestParams, time.Duration(timeoutMs)*time.Millisecond, sensors.config.EnableRecordRequestCostTime)
 }
